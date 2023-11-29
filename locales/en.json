@@ -71,7 +71,6 @@
   "vehicletheft": "Vehicle Theft",
   "officerdown": "Officer is down",
   "officerdistress": "Officer in distress",
-  "officerbackup": "Officer needs backup",
   "emsdown": "EMS Down",
   "artgalleryrobbery": "Art Gallery Robbery",
   "humanerobbery": "Humane Labs Robbery",
@@ -85,6 +84,8 @@
   "susactivity": "Suspicious Activity",
   "hunting": "Possible Hunting Violation",
   "explosion": "Explosion Reported",
+  "taxirequest": "Taxi Request",
+  "towrequest": "Tow Request",
 
   "justnow": "just now",
   "minute": "minutes ago",

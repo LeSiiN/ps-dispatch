@@ -6,16 +6,11 @@ Config.RespondKeybind = 'E'
 Config.OpenDispatchMenu = 'O'
 Config.AlertTime = 5     -- How many seconds you want the alert to stay on screen
 
-Config.TaxiNumber = "6666" -- Sets the Taxi Number to Call
-Config.TowNumber = "9899" -- Sets the Tow Number to Call
-
 Config.MaxCallList = 25 -- maximum dispatch calls in dispatch list
 Config.OnDutyOnly = true -- Set true if only on duty players can see the alert
 Config.Jobs = { -- Job Types that can access the dispatch menu
     "leo",
-    "ems",
-    "taxi",
-    "tow"
+    "ems"
 }
 
 Config.DefaultAlertsDelay = 5 -- Delay between each default alert, prevent spamming
@@ -415,28 +410,6 @@ Config.Blips = {
         sound2 = 'GTAO_FM_Events_Soundset',
         offset = false,
         flash = false
-    },
-    ['taxirequest'] = {
-        radius = 0,
-        sprite = 198,
-        color = 5,
-        scale = 1.5,
-        length = 2,
-        sound = 'Lose_1st',
-        sound2 = 'GTAO_FM_Events_Soundset',
-        offset = false,
-        flash = true
-    },
-    ['towrequest'] = {
-        radius = 0,
-        sprite = 68,
-        color = 5,
-        scale = 1.5,
-        length = 2,
-        sound = 'Lose_1st',
-        sound2 = 'GTAO_FM_Events_Soundset',
-        offset = false,
-        flash = true
     }
 }
 

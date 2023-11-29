@@ -59,23 +59,18 @@
        class:mr-[2vh]={$IS_RIGHT_MARGIN}
       >
     {#each notifications.slice().reverse() as dispatch, index (dispatch.data.id)}
-      <div class="w-full h-fit my-[0.5vh] font-medium
-      {dispatch.data.priority === 1 ? 'bg-priority_secondary' : dispatch.data.priority === 3 ? 'bg-yellow-700' : dispatch.data.priority === 4 ? 'bg-slate-700' : 'bg-primary'}"
-      transition:fly="{{ x: $IS_RIGHT_MARGIN ? 400 : -400 }}">
-        <div class="flex items-center gap-[1vh] p-[1vh] text-[1.5vh] 
-        {dispatch.data.priority === 1 ? 'bg-priority_primary' : dispatch.data.priority === 3 ? 'bg-yellow-800' : dispatch.data.priority === 4 ? 'bg-slate-800' : 'bg-primary'}">
+      <div class="w-full h-fit my-[0.5vh] font-medium {dispatch.data.priority == 1 ? " bg-priority_secondary" : " bg-secondary"}" transition:fly="{{ x: $IS_RIGHT_MARGIN ? 400 : -400 }}">
+        <div class="flex items-center gap-[1vh] p-[1vh] text-[1.5vh] {dispatch.data.priority == 1 ? " bg-priority_primary" : " bg-primary"}">
           <p class="px-[2vh] py-[0.2vh] rounded-full bg-accent_green">
             #{dispatch.data.id}
           </p>
-          <p class="px-[2vh] py-[0.2vh] rounded-full 
-          {dispatch.data.priority === 1 ? 'bg-accent_red' : dispatch.data.priority === 3 ? 'bg-yellow-600' : dispatch.data.priority === 4 ? 'bg-slate-600' : 'bg-accent_cyan'}">
+          <p class="px-[2vh] py-[0.2vh] rounded-full {dispatch.data.priority == 1 ? " bg-accent_red" : "bg-accent_cyan"}">
             {dispatch.data.code}
           </p>
           <p class="py-[0.2vh]">
             {dispatch.data.message}
           </p>
-          <i class="{dispatch.data.icon} py-[0.2vh] ml-auto mr-[0.5vh] 
-          {dispatch.data.priority === 1 ? 'bg-accent_red' : dispatch.data.priority === 3 ? 'bg-yellow-800' : dispatch.data.priority === 4 ? 'bg-slate-800' : 'text-accent_cyan'}"></i>
+          <i class="{dispatch.data.icon} py-[0.2vh] ml-auto mr-[0.5vh] {dispatch.data.priority == 1 ? " text-accent_red" : "text-accent_cyan"}"></i>
         </div>
         <div class="flex">
           <div class="flex flex-col p-[1vh] gap-y-[0.4vh] text-[1.4vh] w-[70%]">
@@ -92,8 +87,7 @@
           </div>
           <div class="w-[30%] flex items-end justify-center mb-[1vh]">
             {#if index === 0}
-              <p class="px-[1.5vh] py-[0.4vh] rounded-full text-[1.3vh]
-              {dispatch.data.priority === 1 ? 'bg-priority_primary' : dispatch.data.priority === 3 ? 'bg-yellow-800' : dispatch.data.priority === 4 ? 'bg-slate-800' : 'bg-primary'}">
+              <p class="px-[1.5vh] py-[0.4vh] rounded-full text-[1.3vh] {dispatch.data.priority == 1 ? " bg-priority_primary" : " bg-primary"}">
                 [{$RESPOND_KEYBIND}] Respond
               </p>
             {/if}

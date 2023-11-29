@@ -548,7 +548,7 @@ exports('CustomAlert', CustomAlert)
 local function PhoneCall(message, anonymous, job)
     local coords = GetEntityCoords(cache.ped)
 
-    if IsCallAllowed(message) and not message == "SAFTY" then
+    if IsCallAllowed(message) then
         PhoneAnimation()
 
         local dispatchData = {
@@ -566,16 +566,6 @@ local function PhoneCall(message, anonymous, job)
         }
 
         TriggerServerEvent('ps-dispatch:server:notify', dispatchData)
-    elseif IsCallAllowed("SAFTY") then
-        local job = table.unpack(job)
-        PhoneAnimation()
-        if job == "taxi" then
-            exports['ps-dispatch']:TaxiRequest()
-        end
-        if job == "tow" then
-            local vehicle = QBCore.Functions.GetClosestVehicle()
-            exports['ps-dispatch']:TowRequest(vehicle)
-        end
     end
 end
 
@@ -583,60 +573,11 @@ end
 --- @param type string -- What type of emergency
 --- @param anonymous boolean -- Is the call anonymous
 RegisterNetEvent('ps-dispatch:client:sendEmergencyMsg', function(data, type, anonymous)
-    local jobs = { ['911'] = { 'leo' }, ['311'] = { 'ems' }, [Config.TaxiNumber] = { 'taxi' }, [Config.TowNumber] = { 'tow' } }
+    local jobs = { ['911'] = { 'leo' }, ['311'] = { 'ems' } }
 
     PhoneCall(data, anonymous, jobs[type])
 end)
 
-local function TaxiRequest()
-    local coords = GetEntityCoords(cache.ped)
-    local name = "Mrs "
-    if GetPlayerGender() == "Male" then name = "Mr " end
-
-    local dispatchData = {
-        message = locale('taxirequest'),
-        codeName = 'taxirequest',
-        code = 'CALL',
-        icon = 'fas fa-taxi',
-        priority = 3, -- Taxi
-        coords = coords,
-        name = name .. PlayerData.charinfo.lastname,
-        gender = GetPlayerGender(),
-        street = GetStreetAndZone(coords),
-        jobs = { 'taxi' }
-    }
-
-    TriggerServerEvent('ps-dispatch:server:notify', dispatchData)
-end
-exports('TaxiRequest', TaxiRequest)
---exports['ps-dispatch']:TaxiRequest()
-
-local function TowRequest(vehicle)
-    local coords = GetEntityCoords(cache.ped)
-    local vehicle = GetVehicleData(vehicle)
-    local name = "Mrs "
-    if GetPlayerGender() == "Male" then name = "Mr " end
-
-    local dispatchData = {
-        message = locale('towrequest'),
-        codeName = 'towrequest',
-        code = 'CALL',
-        icon = 'fas fa-trailer',
-        priority = 4,
-        coords = coords,
-        vehicle = vehicle.name,
-        plate = vehicle.plate,
-        color = vehicle.color,
-        name = name .. PlayerData.charinfo.lastname,
-        gender = GetPlayerGender(),
-        street = GetStreetAndZone(coords),
-        jobs = { 'tow' }
-    }
-
-    TriggerServerEvent('ps-dispatch:server:notify', dispatchData)
-end
-exports('TowRequest', TowRequest)
---exports['ps-dispatch']:TowRequest(vehicle)
 
 local function ArtGalleryRobbery()
     local coords = GetEntityCoords(cache.ped)

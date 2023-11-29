@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { PLAYER, Locale, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH_MUTED, DISPATCH_DISABLED, MAX_CALL_LIST, IS_RIGHT_MARGIN} from '@store/stores';
+  import { PLAYER, Locale, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH_MUTED, DISPATCH_DISABLED, MAX_CALL_LIST, IS_RIGHT_MARGIN } from '@store/stores';
   import { fly, slide } from 'svelte/transition';
 	import { timeAgo } from '@utils/timeAgo'
 	import { SendNUI } from '@utils/SendNUI'
@@ -117,23 +117,18 @@
   <div class="w-[25%] h-[97%] overflow-auto pr-[0.5vh]" class:ml-[2vh]={!$IS_RIGHT_MARGIN} class:mr-[2vh]={$IS_RIGHT_MARGIN}>
     {#if $DISPATCH_MENU}
     {#each $DISPATCH_MENU.slice(-$MAX_CALL_LIST).filter(dispatch => dispatch.message && dispatch.jobs.includes($PLAYER.job.type)).slice().reverse() as dispatch}
-    <button class="w-full h-fit mb-[1vh] font-medium
-    {dispatch.priority === 1 ? 'bg-priority_secondary' : dispatch.priority === 3 ? 'bg-yellow-700' : dispatch.priority === 4 ? 'bg-slate-700' : 'bg-secondary'}"
-    on:click={() => toggleDispatch(dispatch.id)}>
-        <div class="flex items-center gap-[1vh] p-[1vh] text-[1.5vh]
-        {dispatch.priority === 1 ? 'bg-priority_primary' : dispatch.priority === 3 ? 'bg-yellow-800' : dispatch.priority === 4 ? 'bg-slate-800' : 'bg-primary'}">
+    <button class="w-full h-fit mb-[1vh] font-medium {dispatch.priority == 1 ? 'bg-priority_secondary' : 'bg-secondary'}" on:click={() => toggleDispatch(dispatch.id)}>
+        <div class="flex items-center gap-[1vh] p-[1vh] text-[1.5vh] {dispatch.priority == 1 ? " bg-priority_primary" : " bg-primary"}">
             <p class="px-[2vh] py-[0.2vh] rounded-full bg-accent_green">
               #{dispatch.id}
             </p>
-            <p class="px-[2vh] py-[0.2vh] rounded-full
-            {dispatch.priority === 1 ? 'bg-accent_red' : dispatch.priority === 3 ? 'bg-yellow-600' : dispatch.priority === 4 ? 'bg-slate-600' : 'bg-accent_cyan'}">
+            <p class="px-[2vh] py-[0.2vh] rounded-full {dispatch.priority == 1 ? " bg-accent_red" : "bg-accent_cyan"}">
               {dispatch.code}
             </p>
             <p class="py-[0.2vh]">
               {dispatch.message}
             </p>
-            <i class="{dispatch.icon} py-[0.2vh] ml-auto mr-[0.5vh]
-            {dispatch.priority === 1 ? 'text-accent_red' : dispatch.priority === 3 ? 'bg-yellow-800' : dispatch.priority === 4 ? 'bg-slate-800' : 'text-accent_cyan'}"></i>
+            <i class="{dispatch.icon} py-[0.2vh] ml-auto mr-[0.5vh] {dispatch.priority == 1 ? " text-accent_red" : "text-accent_cyan"}"></i>
           </div>
           <div class="flex flex-col p-[1vh] gap-y-[0.4vh] text-[1.4vh] w-full text-start">
               {#each getDispatchData(dispatch) as field}
@@ -153,9 +148,7 @@
             <div class="flex flex-col gap-[0.2vh] mb-[1vh] bg-primary">
               {#each dispatch.units.slice(0, additionalUnitsVisible[dispatch.id] ? dispatch.units.length : 3) as unit}
                 <div class="w-full h-[5vh] flex {dispatch.priority == 1 ? 'bg-priority_tertiary' : 'bg-tertiary'} flex items-center font-medium">
-                  <p class="ml-[2vh] px-[1.4vh] py-[0.2vh] rounded-full {dispatch.priority === 1 ? 'bg-priority_secondary' : (dispatch.priority === 3 || dispatch.priority === 4 ? 'hidden' : 'bg-secondary')}">
-                    {dispatch.priority !== 3 && dispatch.priority !== 4 && unit.metadata.callsign}
-                  </p>
+                  <p class="ml-[2vh] px-[1.4vh] py-[0.2vh] rounded-full {dispatch.priority == 1 ? 'bg-priority_secondary' : 'bg-secondary'}">{unit.metadata.callsign}</p>
                   <p class="mx-[1vh] px-[1.5vh] py-[0.2vh] rounded-full uppercase {unit.job.type == "leo" ? "bg-[#004ca5] " : unit.job.type == "ems" ? "bg-[#e03535]" : "bg-[#4b4b4b]" }">{unit.job.name}</p>
                   <p class="ml-[0.5vh]">{unit.charinfo.firstname} {unit.charinfo.lastname}</p>
                 </div>

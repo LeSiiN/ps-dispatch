@@ -139,7 +139,6 @@ end
 ---@param message string
 ---@return boolean
 function IsCallAllowed(message)
-    if message == "SAFTY" then return true end
     local msgLength = string.len(message)
 
     if msgLength == 0 then return false end

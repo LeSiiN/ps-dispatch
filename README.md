@@ -1,9 +1,12 @@
 # PS Dispatch
 
+THIS IS A FORK FROM LESIIN ( THIS SCRIPT JUST ADDS THE ABILITY TO ADD JOBS LIKE TOW/TAXI)
+IF U WANNA ADD JOBS LIKE TAXI/TOW MAKE SURE TO ADD THE TYPE TAXI / TOW INSIDE QB-CORE/SHARED/JOBS.LUA
+CHANGE THE PHONE NUMBERS INSIDE CONFIG
+
 Integrated with [ps-mdt](https://github.com/Project-Sloth/ps-mdt)
 
-For all support questions, ask in our [Discord](https://www.discord.gg/projectsloth) support chat. 
-Do not create issues on GitHub if you need help. Issues are for bug reporting and new features only.
+NO SUPPORT FOR THIS !
 
 # Depedency
 1. [qb-core](https://github.com/qbcore-framework/qb-core)
@@ -89,7 +92,8 @@ Do not create issues on GitHub if you need help. Issues are for bug reporting an
   - On shared/config.lua make set Config.Debug = true to test calls as police officer.(ONLY to be used as testing, make sure to disable on live production)
 
 * How to change colors of the calls? 
-  - Priority 1 is red and priority 2 is normal on the config. 
+  - Priority 1 is red and priority 2 is normal on the config.
+  - Priority 3 is Taxi Request and priority 4 is Tow Request. 
 
 # Credits
 * [OK1ez](https://github.com/OK1ez)

@@ -1,3 +1,4 @@
+QBCore = exports['qb-core']:GetCoreObject()
 local calls = {}
 
 -- Functions
@@ -83,3 +84,30 @@ lib.addCommand('311a', {
     TriggerClientEvent('ps-dispatch:client:sendEmergencyMsg', source, fullMessage, "311", true)
 end)
 
+lib.addCommand(Config.TaxiNumber, {
+    help = 'Send an message to the Taxi Company'
+}, function(source, raw)
+    local fullMessage = "SAFTY"
+    TriggerClientEvent('ps-dispatch:client:sendEmergencyMsg', source, fullMessage, Config.TaxiNumber, false)
+end)
+
+lib.addCommand(Config.TaxiNumber.."a", {
+    help = 'Send an message to the Taxi Company'
+}, function(source, raw)
+    local fullMessage = "SAFTY"
+    TriggerClientEvent('ps-dispatch:client:sendEmergencyMsg', source, fullMessage, Config.TaxiNumber, true)
+end)
+
+lib.addCommand(Config.TowNumber, {
+    help = 'Send an message to the Tow Truck Company'
+}, function(source, raw)
+    local fullMessage = "SAFTY"
+    TriggerClientEvent('ps-dispatch:client:sendEmergencyMsg', source, fullMessage, Config.TowNumber, false)
+end)
+
+lib.addCommand(Config.TowNumber.."a", {
+    help = 'Send an message to the Tow Truck Company'
+}, function(source, raw)
+    local fullMessage = "SAFTY"
+    TriggerClientEvent('ps-dispatch:client:sendEmergencyMsg', source, fullMessage, Config.TowNumber, true)
+end)

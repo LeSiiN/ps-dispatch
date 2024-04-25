@@ -80,6 +80,7 @@
       { icon: 'fas fa-car', label: 'Class', value: dispatch.class },
       { icon: 'fas fa-door-open', label: 'Doors', value: dispatch.doors },
       { icon: 'fas fa-compass', label: 'Heading', value: dispatch.heading },
+      { icon: 'fas fa-video', label: 'Cam ID', value: dispatch.camId },
       { icon: 'fas fa-user-group', label: 'Units', value: dispatch.units.length },
     ];
   }

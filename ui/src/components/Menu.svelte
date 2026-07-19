@@ -1,26 +1,13 @@
 <script>
-  import { PLAYER, Locale, DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, IS_RIGHT_MARGIN, processedDispatchMenu } from '@store/stores';
+  import { PLAYER, Locale, DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, MAP_IMAGE, UNATTENDED_AFTER, processedDispatchMenu } from '@store/stores';
   import { fly, slide } from 'svelte/transition';
 	import { timeAgo } from '@utils/timeAgo'
 	import { SendNUI } from '@utils/SendNUI'
-	import { onDestroy, onMount } from 'svelte'
+	import MapThumb from './MapThumb.svelte'
   
   let activeCallId = null;
   let additionalUnitsVisible = {};
-  let unsubscribe;
 
-  $: menuRight = false;
-
-  onMount(() => {
-    unsubscribe = IS_RIGHT_MARGIN.subscribe((value) => {
-      menuRight = value;
-    })
-  })
-
-  onDestroy(() => {
-    unsubscribe();
-  })
-  
   function toggleDispatch(id) {
     if (activeCallId === id) {
       activeCallId = null;
@@ -48,12 +35,6 @@
     return Math.max(0, additionalUnits);
   }
 
-  function toggleMargin() {
-    menuRight = !menuRight;
-
-    IS_RIGHT_MARGIN.set(menuRight);
-  }
-
   function toggleMute() {
     DISPATCH_MUTED.update(value => !value);
     SendNUI("toggleMute", { boolean: $DISPATCH_MUTED });
@@ -64,141 +45,192 @@
     SendNUI("toggleAlerts", { boolean: $DISPATCH_DISABLED });
   }
 
-  function getDispatchData(dispatch) {
-    return [
-      { icon: 'fas fa-clock', label: 'Time', value: timeAgo(dispatch.time) },
-      { icon: 'fas fa-user', label: 'Name', value: dispatch.name },
-      { icon: 'fas fa-phone', label: 'Number', value: dispatch.number },
-      { icon: 'fas fa-comment', label: 'Information', value: dispatch.information },
-      { icon: 'fas fa-map-location-dot', label: 'Street', value: dispatch.street },
-      { icon: 'fas fa-user', label: 'Gender', value: dispatch.gender },
-      { icon: 'fas fa-gun', label: 'Automatic Gun Fire', value: dispatch.automaticGunFire },
-      { icon: 'fas fa-gun', label: 'Weapon', value: dispatch.weapon },
-      { icon: 'fas fa-car', label: 'Vehicle', value: dispatch.vehicle },
-      { icon: 'fas fa-rectangle-list', label: 'Plate', value: dispatch.plate },
-      { icon: 'fas fa-droplet', label: 'Color', value: dispatch.color },
-      { icon: 'fas fa-car', label: 'Class', value: dispatch.class },
-      { icon: 'fas fa-door-open', label: 'Doors', value: dispatch.doors },
-      { icon: 'fas fa-compass', label: 'Heading', value: dispatch.heading },
-      { icon: 'fas fa-user-group', label: 'Units', value: dispatch.units.length },
-    ];
+  // Same section helpers as the alert card — the expanded call shows the
+  // identical anatomy (location strip, vehicle strip, danger banner, person
+  // line, quoted note) so alert and menu read as one product.
+  // Triage: true when nobody is attached and the call has been waiting
+  // longer than Config.UnattendedAfter minutes.
+  function unattendedFor(d) {
+    if (!$UNATTENDED_AFTER) return 0;
+    if ((d.units?.length || 0) > 0) return 0;
+    const min = Math.floor((Date.now() - d.time) / 60000);
+    return min >= $UNATTENDED_AFTER ? min : 0;
+  }
+
+  function personLine(d) {
+    return [d.name, d.gender, d.number].filter(Boolean);
+  }
+
+  function vehicleBadges(d) {
+    const out = [];
+    if (d.color) out.push(d.color);
+    if (d.class) out.push(d.class);
+    if (d.doors) out.push(`${d.doors} doors`);
+    return out;
   }
 </script>
 
-<div class="w-screen h-screen flex items-center justify-end { menuRight ? 'flex-row' : 'flex-row-reverse' } " transition:fly="{{ x: menuRight ? 400 : -400 }}">
-  <!-- CONTROLS -->
-  <div class="w-[3.2vh] h-[85%] flex flex-col gap-[1vh]" class:ml-[1vh]={!menuRight} class:mr-[1vh]={menuRight}>
+<div class="w-screen h-screen flex items-center justify-end" transition:fly="{{ x: 400 }}">
+  <!-- One contained MDT-style panel: header with title + controls, scrollable
+       list of compact call rows that expand in place. -->
+  <div class="pd-panel w-[370px] max-w-[30vw] h-[86%] mr-[14px]">
 
-    <!-- REFRESH ALERTS -->
-    <button class="w-full h-[3vh] flex items-center justify-center bg-primary hover:bg-secondary"
-
-      on:click={() => {
-        SendNUI("refreshAlerts");
-      }}
-    >
-      <i class="fas fa-arrows-rotate text-[1.5vh]"></i>
-    </button>
-    <!-- TOGGLE MUTE -->
-    <button class="w-full h-[3vh] flex items-center justify-center bg-primary hover:bg-secondary"
-      on:click={toggleMute}
-    >
-      <i class="fas fa-volume-{$DISPATCH_MUTED ? "xmark" : "high"} text-[1.5vh]"></i>
-    </button>
-    <!-- TOGGLE ALERTS -->
-    <button class="w-full h-[3vh] flex items-center justify-center bg-primary hover:bg-secondary"
-      on:click={toggleAlerts}
-    >
-      <i class="fas fa-{$DISPATCH_DISABLED ? "bell-slash" : "bell"} text-[1.5vh]"></i>
-    </button>
-    <!-- CLEAR BLIPS -->
-    <button class="w-full h-[3vh] flex items-center justify-center bg-primary hover:bg-secondary"
-      on:click={() => {
-        SendNUI("clearBlips");
-      }}
-    >
-    <i class="fas fa-ban text-[1.5vh]"></i>
-
-    </button>
-    <!-- Toggle Margin -->
-    <button class="w-full h-[3vh] flex items-center justify-center bg-primary hover:bg-secondary"
-      on:click={toggleMargin}
-    >
-    <i class="fas fa-{menuRight ? "hand-point-left" : "hand-point-right"} text-[1.5vh]"></i>
-
-    </button>
-  </div>
-  <!-- MENU -->
-  <div class="w-[25%] h-[97%] overflow-auto pr-[0.5vh]" class:ml-[2vh]={!menuRight} class:mr-[2vh]={menuRight}>
-    {#if $DISPATCH_MENU}
-    {#each $processedDispatchMenu as dispatch}
-    <button class="w-full h-fit mb-[1vh] font-medium {dispatch.priority == 1 ? 'bg-priority_secondary' : 'bg-secondary'}" on:click={() => toggleDispatch(dispatch.id)}>
-        <div class="flex items-center gap-[1vh] p-[1vh] text-[1.5vh] {dispatch.priority == 1 ? " bg-priority_primary" : " bg-primary"}">
-            <p class="px-[2vh] py-[0.2vh] rounded-full bg-accent_green">
-              #{dispatch.id}
-            </p>
-            <p class="px-[2vh] py-[0.2vh] rounded-full {dispatch.priority == 1 ? " bg-accent_red" : "bg-accent_cyan"}">
-              {dispatch.code}
-            </p>
-            <p class="py-[0.2vh]">
-              {dispatch.message}
-            </p>
-            <i class="{dispatch.icon} py-[0.2vh] ml-auto mr-[0.5vh] {dispatch.priority == 1 ? " text-accent_red" : "text-accent_cyan"}"></i>
-          </div>
-          <div class="flex flex-col p-[1vh] gap-y-[0.4vh] text-[1.4vh] w-full text-start">
-              {#each getDispatchData(dispatch) as field}
-                {#if field.value}
-                  <p>
-                    <i class={field.icon + ' mr-[0.5vh]'}></i>
-                    {field.label}: {field.value}
-                  </p>
-                {/if}
-              {/each}
-          </div>
+    <div class="pd-head">
+      <div class="pd-icon"><i class="fas fa-tower-broadcast"></i></div>
+      <span class="pd-title">Dispatch</span>
+      {#if $DISPATCH_MENU}
+        <span class="pd-badge">{$processedDispatchMenu.length} active</span>
+      {/if}
+      <div class="flex items-center gap-[4px] ml-auto">
+        <button class="pd-ctl" title="Refresh" on:click={() => SendNUI("refreshAlerts")}>
+          <i class="fas fa-arrows-rotate"></i>
         </button>
-        <!-- UNITS, ATTACH AND DETACH -->
-        {#if activeCallId === dispatch.id}
-        <div class=" mb-[1vh]" transition:slide={{ duration: 300 }}>
-          {#if dispatch.units.length > 0}
-            <div class="flex flex-col gap-[0.2vh] mb-[1vh] bg-primary">
-              {#each dispatch.units.slice(0, additionalUnitsVisible[dispatch.id] ? dispatch.units.length : 3) as unit}
-                <div class="w-full h-[5vh] flex {dispatch.priority == 1 ? 'bg-priority_tertiary' : 'bg-tertiary'} flex items-center font-medium">
-                  <p class="ml-[2vh] px-[1.4vh] py-[0.2vh] rounded-full {dispatch.priority == 1 ? 'bg-priority_secondary' : 'bg-secondary'}">{unit.metadata.callsign}</p>
-                  <p class="mx-[1vh] px-[1.5vh] py-[0.2vh] rounded-full uppercase {unit.job.type == "leo" ? "bg-[#004ca5] " : unit.job.type == "ems" ? "bg-[#e03535]" : "bg-[#4b4b4b]" }">{unit.job.name}</p>
-                  <p class="ml-[0.5vh]">{unit.charinfo.firstname} {unit.charinfo.lastname}</p>
+        <button class="pd-ctl" class:pd-ctl--active={$DISPATCH_MUTED} title="Mute sounds" on:click={toggleMute}>
+          <i class="fas fa-volume-{$DISPATCH_MUTED ? "xmark" : "high"}"></i>
+        </button>
+        <button class="pd-ctl" class:pd-ctl--active={$DISPATCH_DISABLED} title="Toggle alerts" on:click={toggleAlerts}>
+          <i class="fas fa-{$DISPATCH_DISABLED ? "bell-slash" : "bell"}"></i>
+        </button>
+        <button class="pd-ctl" title="Clear blips" on:click={() => SendNUI("clearBlips")}>
+          <i class="fas fa-ban"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="pd-scroll flex-1 overflow-y-auto p-[10px] flex flex-col gap-[6px]">
+      {#if $DISPATCH_MENU}
+        {#each $processedDispatchMenu as dispatch (dispatch.id)}
+          <div>
+            <button class="pd-row {dispatch.priority == 1 ? 'pd-row--priority' : ''}" class:pd-row--open={activeCallId === dispatch.id} on:click={() => toggleDispatch(dispatch.id)}>
+              <div class="pd-icon {dispatch.priority == 1 ? 'pd-icon--priority' : ''}">
+                <i class={dispatch.icon}></i>
+              </div>
+              <div class="flex flex-col min-w-0 flex-1 gap-[2px]">
+                <div class="flex items-center gap-[6px]">
+                  <span class="pd-badge {dispatch.priority == 1 ? 'pd-badge--red' : 'pd-badge--cyan'}">{dispatch.code}</span>
+                  {#if (dispatch.count || 1) > 1}
+                    <span class="pd-badge pd-badge--red">×{dispatch.count}</span>
+                  {/if}
+                  <span class="pd-row-msg flex-1">{dispatch.message}</span>
                 </div>
-              {/each}
-              {#if dispatch.units.length > 3}
-                {#if !additionalUnitsVisible[dispatch.id]}
-                  <button class="w-full h-[5vh] flex items-center justify-center {dispatch.priority == 1 ? 'bg-priority_tertiary' : 'bg-tertiary'} flex items-center font-medium" on:click={() => toggleAdditionalUnits(dispatch.id)}>
-                    <p class="ml-[0.5vh]">+{getAdditionalUnitsCount(dispatch)} {$Locale.additionals}</p>
-                  </button>
+                <div class="flex items-center gap-[8px]">
+                  <span class="pd-kv-label">#{dispatch.id}</span>
+                  {#if dispatch.street}<span class="text-[10px] opacity-40 truncate">{dispatch.street}</span>{/if}
+                  <span class="pd-time">{timeAgo(dispatch.time)}</span>
+                </div>
+              </div>
+              <div class="flex items-center gap-[6px] flex-shrink-0">
+                {#if unattendedFor(dispatch)}
+                  <span class="pd-badge pd-badge--amber" title="No units attached"><i class="fas fa-clock mr-[3px]"></i>{unattendedFor(dispatch)}m</span>
                 {/if}
-              {/if}
-            </div>
-          {/if}
-          <button class="w-full h-[5vh] {dispatch.priority == 1 ? " bg-priority_quaternary" : " bg-accent_green"} flex items-center font-medium"
-            on:click={() => {
-              if (CheckIfAttached(dispatch.units, $PLAYER.citizenid)) {
-                SendNUI("detachUnit", dispatch );
-                SendNUI("refreshAlerts");
-              } else {
-                SendNUI("attachUnit", dispatch );
-                SendNUI("refreshAlerts");
-              }
-            }}>
-            <p class="mx-[2vh] px-[2vh] py-[0.2vh] rounded-full {dispatch.priority == 1 ? " bg-accent_dark_red" : "  bg-accent_dark_green"} ">{dispatch.units.length} {$Locale.units}</p>
-            <p class="ml-[3vh]">
-              {#if CheckIfAttached(dispatch.units, $PLAYER.citizenid)}
-                {$Locale.dispatch_detach}
-              {:else}
-                {$Locale.dispatch_attach}
-              {/if}
-            </p>
-          </button>
-        </div>
-        {/if}
-      {/each}
-    {/if}
+                {#if dispatch.units.length > 0}
+                  <span class="pd-badge pd-badge--green"><i class="fas fa-user-group mr-[3px]"></i>{dispatch.units.length}</span>
+                {/if}
+                <i class="fas fa-chevron-{activeCallId === dispatch.id ? 'up' : 'down'} text-[9px] opacity-35"></i>
+              </div>
+            </button>
+
+            {#if activeCallId === dispatch.id}
+              <div class="pd-detail" transition:slide={{ duration: 200 }}>
+                {#if $MAP_IMAGE}
+                  <MapThumb coords={dispatch.coords} priority={dispatch.priority} src={$MAP_IMAGE} height={92} />
+                {/if}
+                {#if dispatch.street || dispatch.heading}
+                  <div class="pd-strip">
+                    <div class="pd-strip-row">
+                      <i class="fas fa-location-dot text-[10px] opacity-50"></i>
+                      <span class="pd-strip-title">{dispatch.street || 'Unknown location'}</span>
+                      {#if dispatch.heading}
+                        <span class="pd-badge pd-badge--blue"><i class="fas fa-compass mr-[3px]"></i>{dispatch.heading}</span>
+                      {/if}
+                    </div>
+                  </div>
+                {/if}
+
+                {#if dispatch.vehicle || dispatch.plate}
+                  <div class="pd-strip">
+                    <div class="pd-strip-row">
+                      <i class="fas fa-car text-[10px] opacity-50"></i>
+                      <span class="pd-strip-title">{dispatch.vehicle || 'Unknown vehicle'}</span>
+                      {#if dispatch.plate}
+                        <span class="pd-plate">{dispatch.plate}</span>
+                      {/if}
+                    </div>
+                    {#if vehicleBadges(dispatch).length}
+                      <div class="pd-strip-badges">
+                        {#each vehicleBadges(dispatch) as b}
+                          <span class="pd-badge">{b}</span>
+                        {/each}
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
+
+                {#if dispatch.weapon || dispatch.automaticGunFire}
+                  <div class="pd-danger {dispatch.automaticGunFire ? 'pd-danger--red' : ''}">
+                    <i class="fas fa-gun"></i>
+                    <span>
+                      {#if dispatch.weapon}{dispatch.weapon}{:else}Shots fired{/if}
+                      {#if dispatch.automaticGunFire}&nbsp;· Automatic fire{/if}
+                    </span>
+                  </div>
+                {/if}
+
+                {#if personLine(dispatch).length}
+                  <div class="pd-person">
+                    <i class="fas fa-user"></i>
+                    {#each personLine(dispatch) as part, i}
+                      {#if i > 0}<span class="opacity-40">·</span>{/if}
+                      <span>{part}</span>
+                    {/each}
+                  </div>
+                {/if}
+
+                {#if dispatch.information}
+                  <div class="pd-note">{dispatch.information}</div>
+                {/if}
+
+                {#if dispatch.units.length > 0}
+                  <div class="mt-[7px]">
+                    <span class="pd-kv-label">Attached Units</span>
+                    <div class="mt-[3px]">
+                      {#each dispatch.units.slice(0, additionalUnitsVisible[dispatch.id] ? dispatch.units.length : 3) as unit}
+                        <div class="pd-unit">
+                          {#if unit.metadata.callsign}<span class="pd-badge pd-mono">{unit.metadata.callsign}</span>{/if}
+                          <span class="pd-badge {unit.job.type == "leo" ? "pd-badge--blue" : unit.job.type == "ems" ? "pd-badge--red" : ""} uppercase">{unit.job.name}</span>
+                          <span class="truncate">{unit.charinfo.firstname} {unit.charinfo.lastname}</span>
+                        </div>
+                      {/each}
+                      {#if dispatch.units.length > 3 && !additionalUnitsVisible[dispatch.id]}
+                        <button class="pd-btn w-full mt-[4px]" on:click={() => toggleAdditionalUnits(dispatch.id)}>
+                          +{getAdditionalUnitsCount(dispatch)} {$Locale.additionals}
+                        </button>
+                      {/if}
+                    </div>
+                  </div>
+                {/if}
+
+                <button class="pd-btn {CheckIfAttached(dispatch.units, $PLAYER.citizenid) ? 'pd-btn--red' : 'pd-btn--green'} w-full mt-[8px]"
+                  on:click={() => {
+                    if (CheckIfAttached(dispatch.units, $PLAYER.citizenid)) {
+                      SendNUI("detachUnit", dispatch );
+                      SendNUI("refreshAlerts");
+                    } else {
+                      SendNUI("attachUnit", dispatch );
+                      SendNUI("refreshAlerts");
+                    }
+                  }}>
+                  {#if CheckIfAttached(dispatch.units, $PLAYER.citizenid)}
+                    <i class="fas fa-user-minus"></i> {$Locale.dispatch_detach}
+                  {:else}
+                    <i class="fas fa-user-plus"></i> {$Locale.dispatch_attach}
+                  {/if}
+                </button>
+              </div>
+            {/if}
+          </div>
+        {/each}
+      {/if}
+    </div>
   </div>
 </div>
-

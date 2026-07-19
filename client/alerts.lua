@@ -20,8 +20,16 @@ local function CustomAlert(data)
         vehicle = data.model or nil, -- Vehicle name
         plate = data.plate or nil, -- Vehicle plate
         alertTime = data.alertTime or nil, -- How long it stays on the screen in seconds
-        doorCount = data.doorCount or nil, -- How many doors on vehicle
-        automaticGunfire = data.automaticGunfire or false, -- Automatic Gun or not
+        information = data.information or nil, -- Free-text note shown on the alert
+        weapon = data.weapon or nil, -- Weapon name (danger banner)
+        class = data.class or nil, -- Vehicle class
+        -- The UI reads `doors` and `automaticGunFire` (capital F) — the old
+        -- keys below never matched and thus never displayed for custom
+        -- alerts; kept for anything external that might read them.
+        doors = data.doorCount or data.doors or nil,
+        doorCount = data.doorCount or nil,
+        automaticGunFire = data.automaticGunfire or data.automaticGunFire or false,
+        automaticGunfire = data.automaticGunfire or false,
         alert = {
             radius = data.radius or 0, -- Radius around the blip
             sprite = data.sprite or 1, -- Sprite of the blip

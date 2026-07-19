@@ -118,7 +118,7 @@
 
 
 <div class="absolute top-0 z-[1000]">
-	<button class="bg-[#232B33] text-white p-2 font-medium"
+	<button class="bg-primary text-white p-2 font-medium"
 		on:click={() => {
 			show = !show;
 		}}

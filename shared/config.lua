@@ -1,13 +1,77 @@
 Config = Config or {}
 
 Config.ShortCalls = false -- Dispatch notifications are sent containing only the alert name, omitting additional details. For more information, the dispatch menu can be accessed.  
-Config.Debug = false -- Enables debug and send alerts when leo break the law.
+Config.Debug = true -- Enables debug and send alerts when leo break the law.
 
 Config.RespondKeybind = 'E'
 Config.OpenDispatchMenu = 'O'
 Config.AlertTime = 5     -- Specify the duration for the alert to appear on the screen. The default time is 5 seconds for all alerts. To set a different duration for specific alerts, change the value in `alertTime = nil` found in the alerts.lua file.
 
 Config.MaxCallList = 25 -- maximum dispatch calls in dispatch list
+
+-- ── Call merging (spam collapse) ─────────────────────────────────────────────
+-- Identical alerts (same alert type) reported within `Window` seconds and
+-- `Radius` metres of an existing call bump that call's ×count instead of
+-- creating a new popup/blip/list entry. Six shots-fired reports from one
+-- shootout become one call marked "×6".
+Config.CallMerge = {
+    Enabled = true,
+    Window = 45,    -- seconds
+    Radius = 50.0,  -- metres
+}
+
+-- Send alerts only to players whose job matches the call (server-side filter)
+-- instead of broadcasting to every client. Set false to restore the old
+-- behaviour (e.g. when not running QBCore).
+Config.FilteredBroadcast = true
+
+-- Maximum alert popups stacked on screen at once; older ones collapse into a
+-- "+N more" line until they expire.
+Config.MaxVisibleAlerts = 4
+
+-- Where the alert toasts appear on screen. The dispatch menu itself is
+-- always anchored to the right. Valid values:
+--   'top-left'    | 'top-center'    | 'top-right'
+--   'center-left' |                   'center-right'
+--   'bottom-left' | 'bottom-center' | 'bottom-right'
+Config.AlertPosition = 'top-right'
+
+-- Demo command that fires a varied sequence of test alerts 10 seconds apart
+-- (vehicle strip, weapon banner, priority, merge ×N, note, ...) so styling
+-- changes can be reviewed without staging crimes. Set false in production.
+Config.TestCommand = 'dispatchtest'
+
+-- Calls older than this many minutes are swept from the call list (the menu
+-- otherwise shows session-old calls forever). 0 disables the sweep.
+Config.CallLifetime = 30
+
+-- Also skip off-duty players in the server-side broadcast filter. Clients
+-- drop off-duty alerts anyway; this just saves sending them at all.
+Config.FilterOnDuty = true
+
+-- Hard cap on ps-dispatch:server:notify per player (events / seconds).
+-- The event is entirely client-driven, so without a limit a modified client
+-- can flood every officer's screen with fake alerts.
+Config.NotifyRateLimit = { Max = 12, Window = 10 }
+
+-- Map thumbnail on alert cards / expanded menu calls. Points at the ps-mdt
+-- map image served over NUI — CEF can read other resources' files directly,
+-- so no copy of the map ships with dispatch. Adjust the resource name if
+-- your MDT folder is named differently; set false to disable thumbnails.
+-- (Thumbnails hide themselves automatically if the image can't be loaded or
+-- the call is off the mainland map, e.g. Cayo.)
+Config.MdtMapImage = 'nui://ps-mdt/web/dist/images/map.jpeg'
+
+-- Calls with NO attached units older than this many minutes get an amber
+-- "unattended" badge in the dispatch menu, so dispatchers instantly see
+-- what's slipping through. 0 disables the badge.
+Config.UnattendedAfter = 3
+
+-- Play alert sounds locally instead of round-tripping through the
+-- interact-sound server event (one less network hop per alert). Requires the
+-- standard interact-sound resource with its `InteractSound_CL:PlayOnOne`
+-- client event; set false to restore the old server-routed path.
+Config.LocalSounds = true
 Config.OnDutyOnly = true -- Set true if only on duty players can see the alert
 Config.Jobs = { -- Job Types or names that can access the dispatch menu. If you want to allow more jobs to see certain dispatch alerts. Go to alerts.lua and add the job name to the alert.
     "leo",

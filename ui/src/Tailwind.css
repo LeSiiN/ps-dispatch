@@ -27,17 +27,374 @@ html, body {
     width: 100vw;
     font-size: 1.6rem;
     overflow: hidden;
+    /* Same stack as ps-mdt (variables.css) so both UIs render identically. */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: rgba(255, 255, 255, 0.87);
 }
 
-::-webkit-scrollbar {
-    height: 0px;
-    width: 4px;
-    background-color: #7979795e;
-    border-radius: 50px;
+/* ════════════════════════════════════════════════════════════════════════════
+   ps-mdt design language — modeled directly on the MDT's ImpoundForm, the
+   one MDT surface that (like dispatch) floats over the game world at native
+   resolution: rgba(26,28,33,.97) panels, hairline borders, 6px/4px radii and
+   PIXEL type sizes (9-14px) instead of vh. 
+   ════════════════════════════════════════════════════════════════════════ */
+
+/* Floating panel (ImpoundForm .modal) */
+.pd-panel {
+    background: rgba(26, 28, 33, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
+}
+.pd-panel--priority { border-color: rgba(239, 68, 68, 0.35); box-shadow: inset 3px 0 0 rgba(239, 68, 68, 0.7), 0 24px 70px rgba(0, 0, 0, 0.65); }
+
+.pd-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+.pd-title { font-size: 12px; font-weight: 600; color: rgba(255, 255, 255, 0.85); }
+
+/* Icon tile (small, tinted) */
+.pd-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    font-size: 11px;
+    flex-shrink: 0;
+    background: rgba(6, 182, 212, 0.12);
+    color: #22d3ee;
+    border: 1px solid rgba(6, 182, 212, 0.25);
+}
+.pd-icon--priority { background: rgba(239, 68, 68, 0.12); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
+
+/* Micro badge (ImpoundForm .vs-prior) */
+.pd-badge {
+    border-radius: 3px;
+    padding: 1px 6px;
+    background: rgba(255, 255, 255, 0.05);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    color: rgba(255, 255, 255, 0.45);
+    white-space: nowrap;
+}
+.pd-badge--cyan  { background: rgba(6, 182, 212, 0.12);  color: #22d3ee; }
+.pd-badge--red   { background: rgba(239, 68, 68, 0.14);  color: #f87171; }
+.pd-badge--green { background: rgba(34, 197, 94, 0.12);  color: #4ade80; }
+.pd-badge--blue  { background: rgba(59, 130, 246, 0.12); color: #93c5fd; }
+
+/* Key/value rows (11px, muted labels) */
+.pd-kv { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 3px 0; }
+.pd-kv + .pd-kv { border-top: 1px solid rgba(255, 255, 255, 0.04); }
+.pd-kv-label { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255, 255, 255, 0.4); white-space: nowrap; }
+.pd-kv-value { font-size: 11px; color: rgba(255, 255, 255, 0.78); text-align: right; overflow-wrap: anywhere; }
+.pd-mono { font-family: 'Courier New', monospace; font-weight: 700; letter-spacing: 0.5px; font-size: 11px; }
+
+/* Muted header timestamp */
+.pd-time { margin-left: auto; font-size: 10px; color: rgba(255, 255, 255, 0.4); white-space: nowrap; }
+
+/* Keyboard hint */
+.pd-kbd {
+    display: inline-block;
+    padding: 0 5px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-bottom-width: 2px;
+    background: rgba(255, 255, 255, 0.06);
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    line-height: 15px;
+    color: rgba(255, 255, 255, 0.7);
 }
 
-::-webkit-scrollbar-thumb {
-    background-color: #cecece;
-    border-radius: 50px;
+/* Buttons (MDT btn-primary / secondary) */
+.pd-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 4px;
+    border: 1px solid transparent;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.1s;
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.7);
+}
+.pd-btn:hover { background: rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.9); }
+.pd-btn--green { background: rgb(41, 158, 109); color: #fff; }
+.pd-btn--green:hover { background: rgb(34, 190, 131); }
+.pd-btn--red { background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
+.pd-btn--red:hover { background: rgba(239, 68, 68, 0.25); }
+
+/* Icon-only control button (menu header) */
+.pd-ctl {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 3px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    background: transparent;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.1s;
+}
+.pd-ctl:hover { color: rgba(255, 255, 255, 0.75); border-color: rgba(255, 255, 255, 0.12); }
+.pd-ctl--active { color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
+
+/* List rows in the dispatch menu (collapsed call entries) */
+.pd-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 7px 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.1s;
+    text-align: left;
+}
+.pd-row:hover { background: rgba(255, 255, 255, 0.05); border-color: rgba(255, 255, 255, 0.09); }
+.pd-row--open { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.12); }
+.pd-row--priority { border-color: rgba(239, 68, 68, 0.25); box-shadow: inset 2px 0 0 rgba(239, 68, 68, 0.6); }
+.pd-row-msg { font-size: 11px; font-weight: 600; color: rgba(255, 255, 255, 0.8); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Expanded call detail box */
+.pd-detail {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    padding: 8px 10px;
+    margin-top: -4px;
 }
 
+/* Unit rows inside a call */
+.pd-unit { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: 11px; color: rgba(255, 255, 255, 0.7); }
+.pd-unit + .pd-unit { border-top: 1px solid rgba(255, 255, 255, 0.04); }
+
+/* ── Alert toasts ─────────────────────────────────────────────────────────
+   Modeled on the MDT's AlertBanner: one slim two-line strip per call —
+   awareness at a glance, all detail lives in the dispatch menu. A coloured
+   rail on the left carries the priority, a 2px bar along the bottom shows
+   the remaining on-screen time. */
+.pd-toast {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 300px;
+    padding: 7px 10px 9px 13px;
+    background: rgba(26, 28, 33, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.55);
+}
+.pd-toast-rail {
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: rgba(6, 182, 212, 0.75);
+}
+.pd-toast--priority { border-color: rgba(239, 68, 68, 0.35); }
+.pd-toast--priority .pd-toast-rail { background: rgba(239, 68, 68, 0.85); }
+
+.pd-toast-line1 { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.pd-toast-msg { font-size: 11px; font-weight: 600; color: rgba(255, 255, 255, 0.85); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pd-toast-line2 { font-size: 10px; color: rgba(255, 255, 255, 0.45); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+.pd-toast-side { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; flex-shrink: 0; }
+
+.pd-toast-timer {
+    position: absolute;
+    left: 0; bottom: 0;
+    height: 2px;
+    background: rgba(6, 182, 212, 0.55);
+    animation: pdToastTimer linear forwards;
+    animation-duration: var(--dur, 5000ms);
+}
+.pd-toast--priority .pd-toast-timer { background: rgba(239, 68, 68, 0.6); }
+@keyframes pdToastTimer { from { width: 100%; } to { width: 0%; } }
+
+/* ── Alert card sections ──────────────────────────────────────────────────
+   The alert card groups its data into MDT-style strips (ImpoundForm's
+   vehicle-strip pattern) instead of one flat label:value list. */
+.pd-strip {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding: 6px 9px;
+    margin-top: 6px;
+}
+.pd-strip:first-child { margin-top: 0; }
+.pd-strip-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pd-strip-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.85);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    text-align: left;
+}
+.pd-strip-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+
+/* Plate, ImpoundForm .vs-plate verbatim */
+.pd-plate {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 3px;
+    padding: 1px 6px;
+    white-space: nowrap;
+}
+
+/* Danger banner (MDT AlertBanner, amber/red) */
+.pd-danger {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 6px;
+    padding: 5px 9px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    background: rgba(245, 158, 11, 0.09);
+    border: 1px solid rgba(245, 158, 11, 0.28);
+    color: #fbbf24;
+}
+.pd-danger--red {
+    background: rgba(239, 68, 68, 0.09);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #f87171;
+}
+
+/* Person line + quoted info note */
+.pd-person { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 10px; color: rgba(255, 255, 255, 0.5); flex-wrap: wrap; }
+.pd-person i { font-size: 9px; opacity: 0.7; }
+.pd-note {
+    margin-top: 6px;
+    padding: 4px 9px;
+    border-left: 2px solid rgba(255, 255, 255, 0.12);
+    font-size: 10.5px;
+    font-style: italic;
+    color: rgba(255, 255, 255, 0.55);
+    line-height: 1.45;
+}
+.pd-dist { font-size: 10px; color: rgba(255, 255, 255, 0.45); white-space: nowrap; }
+.pd-dist i { font-size: 9px; margin-right: 3px; opacity: 0.7; }
+
+/* Respond bar on the newest alert: styled exactly like the MDT's green
+   primary buttons (attach button in the menu), but static — alerts render
+   without NUI focus, the actual input is the keybind shown inside. */
+.pd-respond {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    margin-top: 7px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    background: rgb(41, 158, 109);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+}
+.pd-respond .pd-kbd { border-color: rgba(255, 255, 255, 0.4); background: rgba(0, 0, 0, 0.2); color: #fff; }
+
+/* Confirmed state after responding */
+.pd-responding {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+    margin-top: 7px;
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(34, 197, 94, 0.12);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    color: #4ade80;
+}
+
+/* ── Map thumbnail ────────────────────────────────────────────────────────
+   Cropped view of the MDT's own map image, centered on the call. */
+.pd-thumb {
+    position: relative;
+    overflow: hidden;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 6px;
+    background: #143247; /* map ocean tone while the image decodes */
+}
+.pd-thumb-map {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    aspect-ratio: 1 / 1;
+    background-size: 100% 100%;
+    filter: saturate(0.9) brightness(0.92);
+}
+.pd-thumb::after { /* subtle vignette so the crop sits into the dark card */
+    content: '';
+    position: absolute;
+    inset: 0;
+    box-shadow: inset 0 0 26px rgba(0, 0, 0, 0.45);
+    pointer-events: none;
+}
+.pd-thumb-marker {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 10px;
+    height: 10px;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: #22d3ee;
+    border: 2px solid rgba(10, 12, 14, 0.9);
+    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.25), 0 0 8px rgba(6, 182, 212, 0.6);
+}
+.pd-thumb-marker--red {
+    background: #f87171;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25), 0 0 8px rgba(239, 68, 68, 0.6);
+}
+
+/* Amber triage badge for calls sitting unattended too long */
+.pd-badge--amber { background: rgba(245, 158, 11, 0.13); color: #fbbf24; }
+
+/* Collapsed-alerts indicator */
+.pd-more { text-align: right; font-size: 10px; color: rgba(255, 255, 255, 0.4); padding-right: 4px; }
+
+/* Thin dark scrollbar */
+.pd-scroll::-webkit-scrollbar { width: 5px; }
+.pd-scroll::-webkit-scrollbar-track { background: transparent; }
+.pd-scroll::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 3px; }
+.pd-scroll::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }

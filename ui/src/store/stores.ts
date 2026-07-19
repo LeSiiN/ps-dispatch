@@ -6,6 +6,10 @@ export const RESOURCE_NAME = writable<string>("");
 
 export const PLAYER = writable<any>(null);
 export const MAX_CALL_LIST = writable<number>(null);
+export const MAX_VISIBLE_ALERTS = writable<number>(4);
+export const ALERT_POSITION = writable<string>("top-right");
+export const MAP_IMAGE = writable<string | null>(null); // null = disabled/unavailable
+export const UNATTENDED_AFTER = writable<number>(0);    // minutes, 0 = off
 export const RESPOND_KEYBIND = writable<string>("");
 
 export const DISPATCH_MUTED = writable<boolean>(false);

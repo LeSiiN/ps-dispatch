@@ -22,7 +22,7 @@
 
   // How much of the map the crop shows: the full image spans ~12,350 world
   // units, so ZOOM 14 ≈ an 880 m wide neighborhood view in a 320px thumb.
-  const ZOOM = 14;
+  const ZOOM = 8;
 
   $: fx = coords ? ((0.02072 * coords.x + 117.3) * 4) / 1024 : null;
   $: fy = coords ? ((-0.0205 * coords.y + 172.8) * 4) / 1024 : null;

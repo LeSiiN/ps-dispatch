@@ -54,6 +54,13 @@ local function createZones()
                 huntingBlips[#huntingBlips+1] = blip
                 huntingBlips[#huntingBlips+1] = huntingradius
             end
+            if Config.Debug then
+                print("____________________________________________")
+                print(" ")
+                print("BIG RED SPHERE IS BECAUSE DEBUG IS ACTIVATED")
+                print(" ")
+                print("____________________________________________")
+            end
             -- Creates the Sphere --
             local huntingZone = lib.zones.sphere({
                 coords = hunting.coords,

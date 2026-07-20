@@ -54,13 +54,6 @@ local function createZones()
                 huntingBlips[#huntingBlips+1] = blip
                 huntingBlips[#huntingBlips+1] = huntingradius
             end
-            if Config.Debug then
-                print("____________________________________________")
-                print(" ")
-                print("BIG RED SPHERE IS BECAUSE CONFIG.DEBUG IS ACTIVATED")
-                print(" ")
-                print("____________________________________________")
-            end
             -- Creates the Sphere --
             local huntingZone = lib.zones.sphere({
                 coords = hunting.coords,
@@ -126,7 +119,19 @@ local function setupDispatch()
             maxCallList = Config.MaxCallList,
             maxVisibleAlerts = Config.MaxVisibleAlerts or 4,
             alertPosition = Config.AlertPosition or 'top-right',
-            mapImage = Config.MdtMapImage or false,
+            -- Map thumbnails read the MDT's map image over NUI. Standalone
+            -- installs (no MDT, or a differently named one) must not end up
+            -- with a broken image request per alert, so the resource is
+            -- resolved from the configured URL and checked here — the NUI
+            -- never even learns about an image it cannot load. The NUI-side
+            -- probe stays as a second net for started-but-file-missing.
+            mapImage = (function()
+                local url = Config.MdtMapImage
+                if type(url) ~= 'string' or url == '' then return false end
+                local res = url:match('^nui://([^/]+)/')
+                if res and GetResourceState(res) ~= 'started' then return false end
+                return url
+            end)(),
             unattendedAfter = Config.UnattendedAfter or 0,
             pinnedCodes = Config.PinnedCodes or {},
         }
@@ -309,6 +314,21 @@ RegisterNetEvent('ps-dispatch:client:detachedFrom', function(id)
     SendNUIMessage({ action = 'callUnresponded', data = id })
 end)
 
+-- ── Per-player settings (dispatch settings modal) ────────────────────────────
+-- The modal owns these; Lua mirrors the two that must gate work BEFORE the
+-- NUI ever sees an alert (blip creation and priority filtering). Defaults
+-- match the modal's own defaults, so an untouched install behaves as before.
+local prefBlips = true
+local prefPriorityOnly = false
+
+RegisterNUICallback('setDispatchPrefs', function(data, cb)
+    if type(data) == 'table' then
+        if type(data.blips) == 'boolean' then prefBlips = data.blips end
+        if type(data.priorityOnly) == 'boolean' then prefPriorityOnly = data.priorityOnly end
+    end
+    cb('ok')
+end)
+
 -- Live "N responding" updates for visible alert popups.
 RegisterNetEvent('ps-dispatch:client:unitCount', function(payload)
     SendNUIMessage({ action = 'unitCount', data = payload })
@@ -330,6 +350,9 @@ RegisterNetEvent('ps-dispatch:client:notify', function(data)
     if alertsDisabled then return end
     if not isJobValid(data.jobs) then return end
     if not IsOnDuty() then return end
+    -- "Priority alerts only": routine chatter is dropped entirely (no popup,
+    -- no blip, no sound). Assignments addressed to this unit always pass.
+    if prefPriorityOnly and data.priority ~= 1 and not data.assigned then return end
 
     -- Straight-line distance to the call at the moment it comes in — the
     -- single most useful fact for deciding whether to respond, and the menu
@@ -350,7 +373,9 @@ RegisterNetEvent('ps-dispatch:client:notify', function(data)
         }
     })
 
-    addBlip(data, Config.Blips[data.codeName] or data.alert)
+    if prefBlips then
+        addBlip(data, Config.Blips[data.codeName] or data.alert)
+    end
 
     RespondToDispatch:disable(false)
     OpenDispatchMenu:disable(true)
@@ -389,6 +414,12 @@ AddEventHandler('QBCore:Client:OnPlayerUnload', removeZones)
 AddEventHandler('onResourceStart', function(resourceName)
     if resourceName ~= GetCurrentResourceName() then return end
     setupDispatch()
+    -- Restart parity: zones were only ever created on OnPlayerLoaded, so a
+    -- resource restart silently killed hunting/no-dispatch detection until
+    -- the next relog. (This is also why resmon showed ~0.03ms after joining
+    -- but 0.00 after a restart — the cost IS the ox_lib zone frame loop, and
+    -- after a restart it simply wasn't running anymore. With empty zone
+    -- lists in the config there are no zones and no frame loop at all.)
     if LocalPlayer.state.isLoggedIn then
         createZones()
     end

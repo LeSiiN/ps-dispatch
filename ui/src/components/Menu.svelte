@@ -1,5 +1,5 @@
 <script>
-  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, ALERT_POSITION, MAX_VISIBLE_ALERTS, THUMBS_ENABLED, MAP_IMAGE, processedDispatchMenu } from '@store/stores';
+  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, ALERT_POSITION, MAX_VISIBLE_ALERTS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, MAP_IMAGE, processedDispatchMenu } from '@store/stores';
   import { fly } from 'svelte/transition';
   import { SendNUI } from '@utils/SendNUI'
   import CallRow from './CallRow.svelte'
@@ -22,8 +22,14 @@
         alertPosition: $ALERT_POSITION,
         maxVisibleAlerts: $MAX_VISIBLE_ALERTS,
         thumbsEnabled: $THUMBS_ENABLED,
+        blipsEnabled: $BLIPS_ENABLED,
+        priorityOnly: $PRIORITY_ONLY,
+        compactAlerts: $COMPACT_ALERTS,
       }));
     } catch (e) { /* storage unavailable — session-only */ }
+    // Blips and the priority filter gate work in Lua BEFORE the NUI is
+    // involved, so those two have to travel to the client as well.
+    SendNUI('setDispatchPrefs', { blips: $BLIPS_ENABLED, priorityOnly: $PRIORITY_ONLY });
   }
 
   // Dispatch board split: calls being worked (≥1 unit) live on the Active
@@ -100,12 +106,6 @@
         <button class="pd-ctl" title="Refresh" on:click={() => SendNUI("refreshAlerts")}>
           <i class="fas fa-arrows-rotate"></i>
         </button>
-        <button class="pd-ctl" class:pd-ctl--active={$DISPATCH_MUTED} title="Mute sounds" on:click={toggleMute}>
-          <i class="fas fa-volume-{$DISPATCH_MUTED ? "xmark" : "high"}"></i>
-        </button>
-        <button class="pd-ctl" class:pd-ctl--active={$DISPATCH_DISABLED} title="Toggle alerts" on:click={toggleAlerts}>
-          <i class="fas fa-{$DISPATCH_DISABLED ? "bell-slash" : "bell"}"></i>
-        </button>
         <button class="pd-ctl" title="Clear blips" on:click={() => SendNUI("clearBlips")}>
           <i class="fas fa-ban"></i>
         </button>
@@ -148,7 +148,7 @@
             <i class="fas fa-xmark"></i>
           </button>
         </div>
-        <div class="pd-modal-body">
+        <div class="pd-modal-body pd-scroll">
 
           <div class="pd-form-group">
             <span class="pd-form-label">Alert Position</span>
@@ -179,6 +179,30 @@
               <div class="pd-toggle" class:pd-toggle--on={$THUMBS_ENABLED} on:click={() => { THUMBS_ENABLED.update(v => !v); saveSettings(); }}></div>
             </div>
           {/if}
+
+          <div class="pd-toggle-row">
+            <div class="pd-form-group">
+              <span class="pd-form-label">Compact Alerts</span>
+              <span class="pd-form-hint">Header, location and note only — no vehicle or suspect details</span>
+            </div>
+            <div class="pd-toggle" class:pd-toggle--on={$COMPACT_ALERTS} on:click={() => { COMPACT_ALERTS.update(v => !v); saveSettings(); }}></div>
+          </div>
+
+          <div class="pd-toggle-row">
+            <div class="pd-form-group">
+              <span class="pd-form-label">Map Blips</span>
+              <span class="pd-form-hint">Place a blip and search radius on the game map</span>
+            </div>
+            <div class="pd-toggle" class:pd-toggle--on={$BLIPS_ENABLED} on:click={() => { BLIPS_ENABLED.update(v => !v); saveSettings(); }}></div>
+          </div>
+
+          <div class="pd-toggle-row">
+            <div class="pd-form-group">
+              <span class="pd-form-label">Priority Alerts Only</span>
+              <span class="pd-form-hint">Mute routine calls entirely — assignments always come through</span>
+            </div>
+            <div class="pd-toggle" class:pd-toggle--on={$PRIORITY_ONLY} on:click={() => { PRIORITY_ONLY.update(v => !v); saveSettings(); }}></div>
+          </div>
 
           <div class="pd-toggle-row">
             <div class="pd-form-group">

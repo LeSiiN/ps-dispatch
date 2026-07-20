@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { ReceiveNUI } from '@utils/ReceiveNUI'
 	import { debugData } from '@utils/debugData'
-	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED } from '@store/stores';
+	import { SendNUI } from '@utils/SendNUI'
+	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS } from '@store/stores';
 
 	debugData([
 		{
@@ -108,6 +109,15 @@
 			if (typeof saved.alertPosition === 'string') ALERT_POSITION.set(saved.alertPosition)
 			if (typeof saved.maxVisibleAlerts === 'number') MAX_VISIBLE_ALERTS.set(saved.maxVisibleAlerts)
 			if (typeof saved.thumbsEnabled === 'boolean') THUMBS_ENABLED.set(saved.thumbsEnabled)
+			if (typeof saved.blipsEnabled === 'boolean') BLIPS_ENABLED.set(saved.blipsEnabled)
+			if (typeof saved.priorityOnly === 'boolean') PRIORITY_ONLY.set(saved.priorityOnly)
+			if (typeof saved.compactAlerts === 'boolean') COMPACT_ALERTS.set(saved.compactAlerts)
+			// The two Lua-gated prefs must reach the client on every session
+			// start, not just when the modal is opened.
+			SendNUI('setDispatchPrefs', {
+				blips: typeof saved.blipsEnabled === 'boolean' ? saved.blipsEnabled : true,
+				priorityOnly: saved.priorityOnly === true,
+			})
 		} catch (e) { /* defaults stand */ }
 		// Thumbnails only activate once the MDT's map image demonstrably
 		// loads — wrong resource name / missing MDT just means no thumbs,

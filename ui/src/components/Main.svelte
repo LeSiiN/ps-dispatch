@@ -1,6 +1,6 @@
 <script>
   import { afterUpdate, onDestroy } from 'svelte';
-  import { DISPATCH, removeDispatch, RESPOND_KEYBIND, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, THUMBS_ENABLED } from '@store/stores';
+  import { DISPATCH, removeDispatch, RESPOND_KEYBIND, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, THUMBS_ENABLED, COMPACT_ALERTS } from '@store/stores';
   import { fly } from 'svelte/transition';
   import { timeAgo } from '@utils/timeAgo';
   import MapThumb from './MapThumb.svelte';
@@ -102,7 +102,7 @@
 
         <div class="px-[10px] py-[8px]">
           <!-- Map crop of the scene, centered on the call -->
-          {#if $MAP_IMAGE && $THUMBS_ENABLED}
+          {#if $MAP_IMAGE && $THUMBS_ENABLED && !$COMPACT_ALERTS}
             <MapThumb coords={dispatch.data.displayCoords || dispatch.data.coords} radius={dispatch.data.mapRadius || 0} priority={dispatch.data.priority} src={$MAP_IMAGE} />
           {/if}
 
@@ -123,7 +123,7 @@
           {/if}
 
           <!-- Vehicle strip: ImpoundForm's vehicle-strip, verbatim language -->
-          {#if dispatch.data.vehicle || dispatch.data.plate}
+          {#if !$COMPACT_ALERTS && ( dispatch.data.vehicle || dispatch.data.plate)}
             <div class="pd-strip">
               <div class="pd-strip-row">
                 <i class="fas fa-car text-[10px] opacity-50"></i>
@@ -143,7 +143,7 @@
           {/if}
 
           <!-- Danger banner: weapons are a flag, not a table row -->
-          {#if dispatch.data.weapon || dispatch.data.automaticGunFire}
+          {#if !$COMPACT_ALERTS && ( dispatch.data.weapon || dispatch.data.automaticGunFire)}
             <div class="pd-danger {dispatch.data.automaticGunFire ? 'pd-danger--red' : ''}">
               <i class="fas fa-gun"></i>
               <span>
@@ -154,7 +154,7 @@
           {/if}
 
           <!-- Caller / suspect facts -->
-          {#if personLine(dispatch.data).length}
+          {#if !$COMPACT_ALERTS && ( personLine(dispatch.data).length)}
             <div class="pd-person">
               <i class="fas fa-user"></i>
               {#each personLine(dispatch.data) as part, i}
@@ -174,7 +174,16 @@
             <div class="pd-person"><i class="fas fa-user-group"></i><span class="text-[#4ade80]">{dispatch.data.unitCount} responding</span></div>
           {/if}
 
-          {#if dispatch.data.responded}
+          {#if dispatch.data.assigned}
+            <!-- Dispatcher assignment: the waypoint is already set and the
+                 unit is already attached, so a respond prompt would be a lie.
+                 Confirmation instead. -->
+            <div class="pd-assigned">
+              <i class="fas fa-headset"></i>
+              <span>Assigned by dispatch</span>
+              <span class="pd-assigned-sub"><i class="fas fa-location-arrow"></i> waypoint set</span>
+            </div>
+          {:else if dispatch.data.responded}
             <div class="pd-responding"><i class="fas fa-circle-check"></i> Responding{#if (dispatch.data.unitCount || 0) > 1}&nbsp;· {dispatch.data.unitCount} units{/if}</div>
           {:else if dispatch.data.id === newestId}
             <div class="pd-respond"><span class="pd-kbd">{$RESPOND_KEYBIND}</span> Respond — attach &amp; set waypoint</div>

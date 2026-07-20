@@ -12,6 +12,9 @@ export const MAP_IMAGE = writable<string | null>(null); // null = disabled/unava
 export const UNATTENDED_AFTER = writable<number>(0);    // minutes, 0 = off
 export const PINNED_CODES = writable<string[]>([]);
 export const THUMBS_ENABLED = writable<boolean>(true);
+export const BLIPS_ENABLED = writable<boolean>(true);
+export const PRIORITY_ONLY = writable<boolean>(false);
+export const COMPACT_ALERTS = writable<boolean>(false);
 export const STATS = writable<any>(null);
 export const RESPOND_KEYBIND = writable<string>("");
 
@@ -21,6 +24,7 @@ export const DISPATCH_DISABLED = writable<boolean>(false);
 export const DISPATCH = writable<any[]>(null);
 
 export const IS_RIGHT_MARGIN = writable(true);
+
 
 export function removeDispatch(callID) {
   DISPATCH.update(dispatches => {

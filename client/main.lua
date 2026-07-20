@@ -122,7 +122,6 @@ local function setupDispatch()
             mapImage = Config.MdtMapImage or false,
             unattendedAfter = Config.UnattendedAfter or 0,
             pinnedCodes = Config.PinnedCodes or {},
-            shortCalls = Config.ShortCalls,
         }
     })
 end

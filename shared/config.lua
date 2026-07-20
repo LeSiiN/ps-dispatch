@@ -1,6 +1,5 @@
 Config = Config or {}
 
-Config.ShortCalls = false -- Dispatch notifications are sent containing only the alert name, omitting additional details. For more information, the dispatch menu can be accessed.  
 Config.Debug = true -- Enables debug and send alerts when leo break the law.
 
 Config.RespondKeybind = 'E'

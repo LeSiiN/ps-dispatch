@@ -20,8 +20,6 @@ Do not create issues on GitHub if you need help. Issues are for bug reporting an
 * Restart your server.
 
 # Preview
-## Short Notifications
-Dispatch notifications are sent containing only the alert name, omitting additional details to help over populated servers. For more information, the dispatch menu can be accessed. Can be configured on [Config.ShortCalls](https://github.com/Project-Sloth/ps-dispatch/blob/40ffc466ec7ffa14faaf40a68e8b3a9a92c72db6/shared/config.lua#L3C1-L3C18), false by default.
 
 <img src="https://github.com/Project-Sloth/ps-dispatch/assets/82112471/7671b361-88aa-42f6-9cd9-32d0fd94881e" width="600">
 

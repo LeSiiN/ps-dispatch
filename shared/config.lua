@@ -89,13 +89,21 @@ Config.UnattendedAfter = 3
 -- client event; set false to restore the old server-routed path.
 Config.LocalSounds = true
 
--- 16 of the built-in alerts play 'Lose_1st', a GTA FRONTEND sound. That
--- native takes no volume argument, so the per-player volume setting simply
--- cannot apply to it — those alerts follow the game's own SFX slider instead.
--- Naming an interact-sound file here routes them through interact-sound as
--- well, which makes the volume setting work for every alert. Set to false to
--- keep the original native sound (and its fixed volume).
-Config.NativeSoundFallback = 'dispatch'
+-- ── Alert sounds ─────────────────────────────────────────────────────────────
+-- Every alert plays through interact-sound so the per-player volume setting
+-- applies. Alerts whose configured sound is a GTA FRONTEND pair (an audioName
+-- plus a `sound2` audioRef, e.g. the built-in 'Lose_1st') have no
+-- interact-sound file of their own and use DefaultAlertSound instead.
+Config.SoundResource = 'interact-sound'
+Config.DefaultAlertSound = 'dispatch'
+
+-- Used for EVERY alert when the resource above isn't running. GTA frontend
+-- sounds take no volume argument, so in this mode the alert volume setting
+-- has no effect and the game's own SFX slider governs loudness.
+Config.NativeFallbackSound = {
+    audioName = 'Lose_1st',
+    audioRef  = 'GTAO_FM_Events_Soundset',
+}
 Config.OnDutyOnly = true -- Set true if only on duty players can see the alert
 Config.Jobs = { -- Job Types or names that can access the dispatch menu. If you want to allow more jobs to see certain dispatch alerts. Go to alerts.lua and add the job name to the alert.
     "leo",

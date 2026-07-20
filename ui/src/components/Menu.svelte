@@ -340,7 +340,7 @@
               <option value={0.5}>Loud</option>
               <option value={0.8}>Very loud</option>
             </select>
-            <span class="pd-form-hint">Applies to alert sounds played through interact-sound</span>
+            <span class="pd-form-hint">Requires interact-sound; without it the game's SFX volume applies</span>
           </div>
 
           <div class="pd-toggle-row">

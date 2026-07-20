@@ -295,7 +295,59 @@ local function createBlip(data, blipData)
     if radius2[data.id] == radius then radius2[data.id] = nil end
 end
 
-local prefVolume = 0.25
+--- Is the interact-sound resource actually running?
+-- Checked per alert rather than cached: alerts are infrequent, and a cached
+-- answer would go stale the moment the sound resource is restarted.
+local function soundResourceAvailable()
+    local res = Config.SoundResource
+    if type(res) ~= 'string' or res == '' then return false end
+    return GetResourceState(res) == 'started'
+end
+
+--- Interact-sound file name for an alert.
+-- A `sound2` companion marks a GTA frontend PAIR (audioName + audioRef), not
+-- an interact-sound file — those have no file of their own and fall back to
+-- the configured default so the volume setting still applies to them.
+local function alertSoundFile(blipData)
+    local name = blipData.sound or (blipData.alert and blipData.alert.sound)
+    local nativePair = blipData.sound2 or (blipData.alert and blipData.alert.sound2)
+    if nativePair or not name or name == '' then
+        return Config.DefaultAlertSound or 'dispatch'
+    end
+    return name
+end
+
+--- GTA frontend pair to use when interact-sound isn't available: the alert's
+--- own pair when it has one, otherwise the configured fallback.
+local function alertNativePair(blipData)
+    local ref = blipData.sound2 or (blipData.alert and blipData.alert.sound2)
+    local name = blipData.sound or (blipData.alert and blipData.alert.sound)
+    if ref and name then return name, ref end
+    local fb = Config.NativeFallbackSound or {}
+    return fb.audioName or 'Lose_1st', fb.audioRef or 'GTAO_FM_Events_Soundset'
+end
+
+--- Play an alert's sound, honouring the player's volume where the audio
+--- backend supports it. Callers gate on mute/volume beforehand.
+local function playAlertSound(blipData)
+    if soundResourceAvailable() then
+        local file = alertSoundFile(blipData)
+        if Config.LocalSounds ~= false then
+            -- Local playback saves a server round-trip per alert (the old
+            -- path went client -> server -> back to this client).
+            TriggerEvent('InteractSound_CL:PlayOnOne', file, prefVolume)
+        else
+            TriggerServerEvent('InteractSound_SV:PlayOnSource', file, prefVolume)
+        end
+        return
+    end
+
+    -- No interact-sound on this server: every alert uses the GTA frontend
+    -- sound. Volume is not adjustable through that native — it follows the
+    -- game's own SFX slider.
+    local name, ref = alertNativePair(blipData)
+    PlaySound(-1, name, ref, 0, 0, 1)
+end
 
 local function addBlip(data, blipData)
     -- Defensive: an alert whose codeName has no blip config and no inline
@@ -309,28 +361,8 @@ local function addBlip(data, blipData)
             createBlip(data, blipData)
         end)
     end
-    -- Volume 0 means muted, and that has to hold for the native sound too,
-    -- which otherwise ignores the setting entirely.
     if not alertsMuted and prefVolume > 0 then
-        local nativeSound = blipData.sound == "Lose_1st"
-        local fallback = Config.NativeSoundFallback
-        if nativeSound and type(fallback) == 'string' and fallback ~= '' then
-            -- Routed through interact-sound so the player's volume applies.
-            if Config.LocalSounds ~= false then
-                TriggerEvent("InteractSound_CL:PlayOnOne", fallback, prefVolume)
-            else
-                TriggerServerEvent("InteractSound_SV:PlayOnSource", fallback, prefVolume)
-            end
-        elseif nativeSound then
-            PlaySound(-1, blipData.sound, blipData.sound2, 0, 0, 1)
-        elseif Config.LocalSounds ~= false then
-            -- Local playback: same interact-sound file, minus one server
-            -- round-trip per alert (the old path went client -> server ->
-            -- back to this client).
-            TriggerEvent("InteractSound_CL:PlayOnOne", blipData.sound or blipData.alert.sound, prefVolume)
-        else
-            TriggerServerEvent("InteractSound_SV:PlayOnSource", blipData.sound or blipData.alert.sound, prefVolume)
-        end
+        playAlertSound(blipData)
     end
 end
 
@@ -363,6 +395,7 @@ end)
 local prefBlips = true
 local prefPriorityOnly = false
 local prefMutedCodes = {}
+local prefVolume = 0.25
 
 RegisterNUICallback('setDispatchPrefs', function(data, cb)
     if type(data) == 'table' then

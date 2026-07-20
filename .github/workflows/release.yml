@@ -82,7 +82,7 @@ jobs:
 
       - name: Stage release files
         run: |
-          STAGE_DIR="release-stage/ps-mdt"
+          STAGE_DIR="release-stage/ps-dispatch"
           mkdir -p "${STAGE_DIR}"
           cp -r client       "${STAGE_DIR}/"
           cp -r server       "${STAGE_DIR}/"
@@ -101,8 +101,8 @@ jobs:
       - name: Create release archive
         id: archive
         run: |
-          ARCHIVE_NAME="ps-mdt-${{ steps.version.outputs.tag }}.zip"
-          (cd release-stage && zip -r "../${ARCHIVE_NAME}" ps-mdt)
+          ARCHIVE_NAME="ps-dispatch-${{ steps.version.outputs.tag }}.zip"
+          (cd release-stage && zip -r "../${ARCHIVE_NAME}" ps-dispatch)
           echo "name=${ARCHIVE_NAME}" >> "$GITHUB_OUTPUT"
           ls -lh "${ARCHIVE_NAME}"
 

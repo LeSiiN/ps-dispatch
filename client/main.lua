@@ -580,7 +580,7 @@ if Config.TestCommand then
             lib.notify({ description = ('Dispatch test: %d alerts, 10s apart'):format(#sequence), type = 'inform' })
             for i = 1, #sequence do
                 sequence[i]()
-                if i < #sequence then Wait(10000) end
+                if i < #sequence then Wait(math.random(2000,10000)) end
             end
         end)
     end, false)

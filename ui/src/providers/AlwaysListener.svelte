@@ -2,7 +2,7 @@
 	import { ReceiveNUI } from '@utils/ReceiveNUI'
 	import { debugData } from '@utils/debugData'
 	import { SendNUI } from '@utils/SendNUI'
-	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, FOCUS_CALL, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, SOUND_VOLUME, REDUCED_MOTION } from '@store/stores';
+	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, FOCUS_CALL, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, REDUCED_MOTION } from '@store/stores';
 
 	debugData([
 		{
@@ -141,7 +141,6 @@
 			if (typeof saved.compactAlerts === 'boolean') COMPACT_ALERTS.set(saved.compactAlerts)
 			if (Array.isArray(saved.mutedCodes)) MUTED_CODES.set(saved.mutedCodes)
 			if (typeof saved.alertDuration === 'number') ALERT_DURATION.set(saved.alertDuration)
-			if (typeof saved.soundVolume === 'number') SOUND_VOLUME.set(saved.soundVolume)
 			if (typeof saved.reducedMotion === 'boolean') REDUCED_MOTION.set(saved.reducedMotion)
 			// The two Lua-gated prefs must reach the client on every session
 			// start, not just when the modal is opened.
@@ -149,7 +148,6 @@
 				blips: typeof saved.blipsEnabled === 'boolean' ? saved.blipsEnabled : true,
 				priorityOnly: saved.priorityOnly === true,
 				mutedCodes: Array.isArray(saved.mutedCodes) ? saved.mutedCodes : [],
-				volume: typeof saved.soundVolume === 'number' ? saved.soundVolume : 0.25,
 			})
 		} catch (e) { /* defaults stand */ }
 		// CSS keyframes (priority flash, timer bar) are not Svelte

@@ -23,7 +23,6 @@ export const OVERLAY_OPEN = writable<boolean>(false);
 export const ALERT_TYPES = writable<string[]>([]);      // every codeName this server can send
 export const MUTED_CODES = writable<string[]>([]);      // personally muted alert types
 export const ALERT_DURATION = writable<number>(1);      // multiplier on Config.AlertTime
-export const SOUND_VOLUME = writable<number>(0.25);
 export const REDUCED_MOTION = writable<boolean>(false);
 export const STATS = writable<any>(null);
 export const RESPOND_KEYBIND = writable<string>("");

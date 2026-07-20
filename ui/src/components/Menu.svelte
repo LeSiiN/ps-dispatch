@@ -1,5 +1,5 @@
 <script>
-  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, ALERT_POSITION, MAX_VISIBLE_ALERTS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, MAP_IMAGE, FOCUS_CALL, OVERLAY_OPEN, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, SOUND_VOLUME, REDUCED_MOTION, processedDispatchMenu } from '@store/stores';
+  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, ALERT_POSITION, MAX_VISIBLE_ALERTS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, MAP_IMAGE, FOCUS_CALL, OVERLAY_OPEN, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, REDUCED_MOTION, processedDispatchMenu } from '@store/stores';
   import { fly, fade, scale, slide } from 'svelte/transition';
   import { flip } from 'svelte/animate';
   import { DUR, EASE_IN, EASE_OUT } from '@utils/motion';
@@ -86,7 +86,6 @@
         compactAlerts: $COMPACT_ALERTS,
         mutedCodes: $MUTED_CODES,
         alertDuration: $ALERT_DURATION,
-        soundVolume: $SOUND_VOLUME,
         reducedMotion: $REDUCED_MOTION,
       }));
     } catch (e) { /* storage unavailable — session-only */ }
@@ -96,7 +95,6 @@
       blips: $BLIPS_ENABLED,
       priorityOnly: $PRIORITY_ONLY,
       mutedCodes: $MUTED_CODES,
-      volume: $SOUND_VOLUME,
     });
   }
 
@@ -329,18 +327,6 @@
               <option value={2}>Very long (2×)</option>
             </select>
             <span class="pd-form-hint">How long alert cards stay on screen</span>
-          </div>
-
-          <div class="pd-form-group">
-            <span class="pd-form-label">Sound Volume</span>
-            <select class="pd-select" value={$SOUND_VOLUME} on:change={(e) => { SOUND_VOLUME.set(Number(e.target.value)); saveSettings(); }}>
-              <option value={0}>Muted</option>
-              <option value={0.1}>Quiet</option>
-              <option value={0.25}>Normal</option>
-              <option value={0.5}>Loud</option>
-              <option value={0.8}>Very loud</option>
-            </select>
-            <span class="pd-form-hint">Requires interact-sound; without it the game's SFX volume applies</span>
           </div>
 
           <div class="pd-toggle-row">

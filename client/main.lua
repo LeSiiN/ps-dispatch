@@ -7,6 +7,13 @@ local blips = {}
 local radius2 = {}
 local alertsMuted = false
 local alertsDisabled = false
+
+-- Per-player settings mirrored from the dispatch settings modal. Declared up
+-- here with the other module state on purpose: the helpers below read them,
+-- and a Lua local is only visible from its declaration line onward.
+local prefBlips = true
+local prefPriorityOnly = false
+local prefMutedCodes = {}
 local waypointCooldown = false
 
 -- Functions
@@ -295,58 +302,29 @@ local function createBlip(data, blipData)
     if radius2[data.id] == radius then radius2[data.id] = nil end
 end
 
---- Is the interact-sound resource actually running?
--- Checked per alert rather than cached: alerts are infrequent, and a cached
--- answer would go stale the moment the sound resource is restarted.
-local function soundResourceAvailable()
-    local res = Config.SoundResource
-    if type(res) ~= 'string' or res == '' then return false end
-    return GetResourceState(res) == 'started'
-end
+--- Play an alert's sound through the game's own audio.
+-- Priority calls get their own, sharper pair so urgent traffic is audible as
+-- urgent. An alert may still override both by carrying a complete native pair
+-- (`sound` + `sound2`) in Config.Blips.
+---@param data table The call (only `priority` is read)
+---@param blipData table|nil The alert's Config.Blips entry
+local function playAlertSound(data, blipData)
+    local cfg = Config.AlertSounds or {}
+    local pair
 
---- Interact-sound file name for an alert.
--- A `sound2` companion marks a GTA frontend PAIR (audioName + audioRef), not
--- an interact-sound file — those have no file of their own and fall back to
--- the configured default so the volume setting still applies to them.
-local function alertSoundFile(blipData)
-    local name = blipData.sound or (blipData.alert and blipData.alert.sound)
-    local nativePair = blipData.sound2 or (blipData.alert and blipData.alert.sound2)
-    if nativePair or not name or name == '' then
-        return Config.DefaultAlertSound or 'dispatch'
+    if data and data.priority == 1 then
+        pair = cfg.priority
     end
-    return name
-end
-
---- GTA frontend pair to use when interact-sound isn't available: the alert's
---- own pair when it has one, otherwise the configured fallback.
-local function alertNativePair(blipData)
-    local ref = blipData.sound2 or (blipData.alert and blipData.alert.sound2)
-    local name = blipData.sound or (blipData.alert and blipData.alert.sound)
-    if ref and name then return name, ref end
-    local fb = Config.NativeFallbackSound or {}
-    return fb.audioName or 'Lose_1st', fb.audioRef or 'GTAO_FM_Events_Soundset'
-end
-
---- Play an alert's sound, honouring the player's volume where the audio
---- backend supports it. Callers gate on mute/volume beforehand.
-local function playAlertSound(blipData)
-    if soundResourceAvailable() then
-        local file = alertSoundFile(blipData)
-        if Config.LocalSounds ~= false then
-            -- Local playback saves a server round-trip per alert (the old
-            -- path went client -> server -> back to this client).
-            TriggerEvent('InteractSound_CL:PlayOnOne', file, prefVolume)
-        else
-            TriggerServerEvent('InteractSound_SV:PlayOnSource', file, prefVolume)
-        end
-        return
+    if not pair and type(blipData) == 'table' then
+        local name = blipData.sound or (blipData.alert and blipData.alert.sound)
+        local ref = blipData.sound2 or (blipData.alert and blipData.alert.sound2)
+        -- Only a COMPLETE pair is a usable native sound; a lone `sound` is a
+        -- leftover interact-sound filename and would play nothing.
+        if name and ref then pair = { audioName = name, audioRef = ref } end
     end
+    pair = pair or cfg.default or { audioName = 'Lose_1st', audioRef = 'GTAO_FM_Events_Soundset' }
 
-    -- No interact-sound on this server: every alert uses the GTA frontend
-    -- sound. Volume is not adjustable through that native — it follows the
-    -- game's own SFX slider.
-    local name, ref = alertNativePair(blipData)
-    PlaySound(-1, name, ref, 0, 0, 1)
+    PlaySound(-1, pair.audioName, pair.audioRef, 0, 0, 1)
 end
 
 local function addBlip(data, blipData)
@@ -360,9 +338,6 @@ local function addBlip(data, blipData)
         CreateThread(function()
             createBlip(data, blipData)
         end)
-    end
-    if not alertsMuted and prefVolume > 0 then
-        playAlertSound(blipData)
     end
 end
 
@@ -392,18 +367,11 @@ end)
 -- The modal owns these; Lua mirrors the two that must gate work BEFORE the
 -- NUI ever sees an alert (blip creation and priority filtering). Defaults
 -- match the modal's own defaults, so an untouched install behaves as before.
-local prefBlips = true
-local prefPriorityOnly = false
-local prefMutedCodes = {}
-local prefVolume = 0.25
 
 RegisterNUICallback('setDispatchPrefs', function(data, cb)
     if type(data) == 'table' then
         if type(data.blips) == 'boolean' then prefBlips = data.blips end
         if type(data.priorityOnly) == 'boolean' then prefPriorityOnly = data.priorityOnly end
-        if type(data.volume) == 'number' then
-            prefVolume = math.min(1.0, math.max(0.0, data.volume))
-        end
         -- Per-player alert-type mutes, stored as a set for O(1) lookups on
         -- the hot notify path.
         if type(data.mutedCodes) == 'table' then
@@ -476,8 +444,18 @@ RegisterNetEvent('ps-dispatch:client:notify', function(data)
         }
     })
 
+    local blipCfg = Config.Blips[data.codeName] or data.alert
     if prefBlips then
-        addBlip(data, Config.Blips[data.codeName] or data.alert)
+        addBlip(data, blipCfg)
+    end
+    -- Sound is deliberately NOT tied to the blip preference: it used to live
+    -- inside addBlip, so switching "Map Blips" off in the settings silently
+    -- killed alert audio as well. Muting the map must not mute the radio.
+    -- Sound is deliberately NOT tied to the blip preference: it used to live
+    -- inside addBlip, so switching "Map Blips" off silently killed alert
+    -- audio too. Muting the map must not mute the radio.
+    if not alertsMuted then
+        playAlertSound(data, blipCfg)
     end
 
     -- Only the respond keybind is gated by the alert window. The menu key is
@@ -616,7 +594,36 @@ end)
 -- person line, quoted note — and finally two identical alerts back-to-back
 -- to demonstrate the ×N merge. Deterministic on purpose: the scripted
 -- scenarios don't require holding a weapon or sitting in a vehicle.
+-- Sound diagnostics: prints every gate that can silence an alert and plays
+-- the configured default through whichever backend is actually active.
 if Config.TestCommand then
+    -- /dispatchsound                      -> plays routine, then priority
+    -- /dispatchsound <audioName> <audioRef> -> tries an arbitrary pair, so a
+    --                                          replacement can be auditioned
+    --                                          without editing the config.
+    RegisterCommand('dispatchsound', function(_, args)
+        if alertsMuted then
+            lib.notify({ description = 'Alerts are muted (settings > Alert Sounds)', type = 'error' })
+            return
+        end
+
+        if args and args[1] and args[2] then
+            PlaySound(-1, args[1], args[2], 0, 0, 1)
+            lib.notify({ description = ('Played %s / %s'):format(args[1], args[2]), type = 'inform' })
+            return
+        end
+
+        local cfg = Config.AlertSounds or {}
+        print(('[ps-dispatch] default=%s/%s | priority=%s/%s')
+            :format(tostring(cfg.default and cfg.default.audioName),
+                tostring(cfg.default and cfg.default.audioRef),
+                tostring(cfg.priority and cfg.priority.audioName),
+                tostring(cfg.priority and cfg.priority.audioRef)))
+        playAlertSound({ priority = 2 })
+        SetTimeout(1400, function() playAlertSound({ priority = 1 }) end)
+        lib.notify({ description = 'Routine sound, then priority sound', type = 'inform' })
+    end, false)
+
     RegisterCommand(Config.TestCommand, function()
         CreateThread(function()
             local res = GetCurrentResourceName()

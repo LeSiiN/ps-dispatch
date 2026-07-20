@@ -57,7 +57,7 @@ local function createZones()
             if Config.Debug then
                 print("____________________________________________")
                 print(" ")
-                print("BIG RED SPHERE IS BECAUSE DEBUG IS ACTIVATED")
+                print("BIG RED SPHERE IS BECAUSE CONFIG.DEBUG IS ACTIVATED")
                 print(" ")
                 print("____________________________________________")
             end

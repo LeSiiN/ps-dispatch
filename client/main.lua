@@ -134,6 +134,14 @@ local function setupDispatch()
             end)(),
             unattendedAfter = Config.UnattendedAfter or 0,
             pinnedCodes = Config.PinnedCodes or {},
+            -- Every alert type this server can produce, so the settings modal
+            -- can offer per-type mutes without hardcoding a list.
+            alertTypes = (function()
+                local list = {}
+                for codeName in pairs(Config.Blips or {}) do list[#list + 1] = codeName end
+                table.sort(list)
+                return list
+            end)(),
         }
     })
 end
@@ -287,6 +295,8 @@ local function createBlip(data, blipData)
     if radius2[data.id] == radius then radius2[data.id] = nil end
 end
 
+local prefVolume = 0.25
+
 local function addBlip(data, blipData)
     -- Defensive: an alert whose codeName has no blip config and no inline
     -- alert table gets no blip/sound rather than a nil-index error.
@@ -299,16 +309,27 @@ local function addBlip(data, blipData)
             createBlip(data, blipData)
         end)
     end
-    if not alertsMuted then
-        if blipData.sound == "Lose_1st" then
+    -- Volume 0 means muted, and that has to hold for the native sound too,
+    -- which otherwise ignores the setting entirely.
+    if not alertsMuted and prefVolume > 0 then
+        local nativeSound = blipData.sound == "Lose_1st"
+        local fallback = Config.NativeSoundFallback
+        if nativeSound and type(fallback) == 'string' and fallback ~= '' then
+            -- Routed through interact-sound so the player's volume applies.
+            if Config.LocalSounds ~= false then
+                TriggerEvent("InteractSound_CL:PlayOnOne", fallback, prefVolume)
+            else
+                TriggerServerEvent("InteractSound_SV:PlayOnSource", fallback, prefVolume)
+            end
+        elseif nativeSound then
             PlaySound(-1, blipData.sound, blipData.sound2, 0, 0, 1)
         elseif Config.LocalSounds ~= false then
             -- Local playback: same interact-sound file, minus one server
             -- round-trip per alert (the old path went client -> server ->
             -- back to this client).
-            TriggerEvent("InteractSound_CL:PlayOnOne", blipData.sound or blipData.alert.sound, 0.25)
+            TriggerEvent("InteractSound_CL:PlayOnOne", blipData.sound or blipData.alert.sound, prefVolume)
         else
-            TriggerServerEvent("InteractSound_SV:PlayOnSource", blipData.sound or blipData.alert.sound, 0.25)
+            TriggerServerEvent("InteractSound_SV:PlayOnSource", blipData.sound or blipData.alert.sound, prefVolume)
         end
     end
 end
@@ -341,13 +362,38 @@ end)
 -- match the modal's own defaults, so an untouched install behaves as before.
 local prefBlips = true
 local prefPriorityOnly = false
+local prefMutedCodes = {}
 
 RegisterNUICallback('setDispatchPrefs', function(data, cb)
     if type(data) == 'table' then
         if type(data.blips) == 'boolean' then prefBlips = data.blips end
         if type(data.priorityOnly) == 'boolean' then prefPriorityOnly = data.priorityOnly end
+        if type(data.volume) == 'number' then
+            prefVolume = math.min(1.0, math.max(0.0, data.volume))
+        end
+        -- Per-player alert-type mutes, stored as a set for O(1) lookups on
+        -- the hot notify path.
+        if type(data.mutedCodes) == 'table' then
+            prefMutedCodes = {}
+            for _, code in ipairs(data.mutedCodes) do
+                if type(code) == 'string' then prefMutedCodes[code] = true end
+            end
+        end
     end
     cb('ok')
+end)
+
+-- A call was closed by an officer: drop its blip and let the NUI remove it
+-- from the menu and the alert stack.
+RegisterNetEvent('ps-dispatch:client:callCleared', function(id)
+    if blips[id] then RemoveBlip(blips[id]) blips[id] = nil end
+    if radius2[id] then RemoveBlip(radius2[id]) radius2[id] = nil end
+    SendNUIMessage({ action = 'callCleared', data = id })
+end)
+
+-- Dispatcher note added/changed/removed on a call.
+RegisterNetEvent('ps-dispatch:client:callNote', function(payload)
+    SendNUIMessage({ action = 'callNote', data = payload })
 end)
 
 -- Live "N responding" updates for visible alert popups.
@@ -374,6 +420,9 @@ RegisterNetEvent('ps-dispatch:client:notify', function(data)
     -- "Priority alerts only": routine chatter is dropped entirely (no popup,
     -- no blip, no sound). Assignments addressed to this unit always pass.
     if prefPriorityOnly and data.priority ~= 1 and not data.assigned then return end
+    -- Personal alert-type mutes (settings modal). Assignments addressed to
+    -- this unit are never muted.
+    if data.codeName and prefMutedCodes[data.codeName] and not data.assigned then return end
 
     -- Straight-line distance to the call at the moment it comes in — the
     -- single most useful fact for deciding whether to respond, and the menu
@@ -502,6 +551,16 @@ RegisterNUICallback("clearBlips", function(data, cb)
     end
     blips, radius2 = {}, {}
     cb("ok")
+end)
+
+RegisterNUICallback("clearCall", function(data, cb)
+    TriggerServerEvent('ps-dispatch:server:clearCall', data.id)
+    cb('ok')
+end)
+
+RegisterNUICallback("setCallNote", function(data, cb)
+    TriggerServerEvent('ps-dispatch:server:setCallNote', data.id, data.note)
+    cb('ok')
 end)
 
 RegisterNUICallback("getStats", function(_, cb)

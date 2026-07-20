@@ -25,6 +25,15 @@ local function resolveBlipMeta(data)
     end
 end
 
+-- Fields a merged report may overwrite on the existing call. Deliberately a
+-- whitelist: id, units, count and the escalation/hotspot bookkeeping have to
+-- survive a merge untouched.
+local MERGE_REFRESH_FIELDS = {
+    'weapon', 'automaticGunFire', 'automaticGunfire', 'information',
+    'vehicle', 'plate', 'color', 'class', 'doors', 'heading',
+    'street', 'gender', 'name', 'number', 'model',
+}
+
 ---@param data table Freshly reported alert
 ---@return table|nil The existing call this alert merged into, or nil
 -- Repeated identical alerts (same alert type, close together in time AND
@@ -52,7 +61,14 @@ local function tryMergeCall(data)
                 call.time = now
                 call.coords = data.coords -- follow the most recent sighting
                 resolveBlipMeta(call)      -- keep display offset/radius in step
-                if data.information then call.information = data.information end
+                -- Descriptive details follow the LATEST report too. Keeping
+                -- only the first one meant a shooter who swapped from a
+                -- pistol to a rifle was still broadcast as "pistol" for the
+                -- rest of the merge window — a merge is one incident, but the
+                -- freshest description of it is the useful one.
+                for _, key in ipairs(MERGE_REFRESH_FIELDS) do
+                    if data[key] ~= nil then call[key] = data[key] end
+                end
                 -- Escalation: a call this many reports deep is no longer
                 -- routine. The rebroadcast carries the new priority, so a
                 -- popup still on screen flips red in place.
@@ -175,6 +191,7 @@ local stats = {
     calls = 0,          -- unique calls (merges are one call)
     mergedReports = 0,  -- extra reports folded into existing calls
     answered = 0,       -- calls that received at least one unit
+    cleared = 0,        -- calls closed by an officer (rather than expiring)
     responseSum = 0,    -- ms from call creation to FIRST attach
     byCode = {},        -- codeName -> count
 }
@@ -188,6 +205,7 @@ lib.callback.register('ps-dispatch:callback:getStats', function()
         calls = stats.calls,
         mergedReports = stats.mergedReports,
         answered = stats.answered,
+        cleared = stats.cleared,
         avgResponseMs = stats.answered > 0 and math.floor(stats.responseSum / stats.answered) or 0,
         topCode = topCode,
         topCount = topCount,
@@ -452,4 +470,84 @@ exports('SendTargetedAlert', sendTargetedAlert)
 RegisterNetEvent('ps-dispatch:server:targetAlert', function(targets, data)
     if source and tonumber(source) and tonumber(source) > 0 then return end
     sendTargetedAlert(targets, data)
+end)
+
+-- ── Call lifecycle: clearing and dispatcher notes ────────────────────────────
+
+---@param src number
+---@param call table
+---@return boolean # true when this player's job is targeted by the call
+-- Both actions below mutate a call everyone can see, so they are limited to
+-- players the call was actually broadcast to. Without QBCore we cannot tell
+-- jobs apart and fall back to allowing it, matching FilteredBroadcast.
+local function mayModifyCall(src, call)
+    if not QBCore then return true end
+    local player = QBCore.Functions.GetPlayer(src)
+    local job = player and player.PlayerData and player.PlayerData.job
+    if not job or type(call.jobs) ~= 'table' then return false end
+    return lib.table.contains(call.jobs, job.type) or lib.table.contains(call.jobs, job.name)
+end
+
+---@param id number
+---@return table|nil call, number|nil index
+local function findCall(id)
+    id = tonumber(id)
+    if not id then return nil, nil end
+    for i = 1, #calls do
+        if calls[i].id == id then return calls[i], i end
+    end
+    return nil, nil
+end
+
+-- Close a call for everyone. Until now the only way out of the list was the
+-- 30-minute expiry sweep, so handled calls lingered and the Active Calls
+-- board filled up with work that was long finished.
+RegisterServerEvent('ps-dispatch:server:clearCall', function(id)
+    local src = source
+    local call, index = findCall(id)
+    if not call or not index then return end
+    if not mayModifyCall(src, call) then return end
+
+    table.remove(calls, index)
+    stats.cleared = stats.cleared + 1
+
+    -- Announce to the call's audience so every open menu drops it, then to
+    -- the clearing player specifically: they may have already moved out of
+    -- the job filter's reach (off duty) but still deserve the confirmation.
+    if Config.FilteredBroadcast == false or not QBCore then
+        TriggerClientEvent('ps-dispatch:client:callCleared', -1, call.id)
+    else
+        for target, player in pairs(QBCore.Functions.GetQBPlayers()) do
+            local job = player.PlayerData and player.PlayerData.job
+            if job and (lib.table.contains(call.jobs, job.type) or lib.table.contains(call.jobs, job.name)) then
+                TriggerClientEvent('ps-dispatch:client:callCleared', target, call.id)
+            end
+        end
+        TriggerClientEvent('ps-dispatch:client:callCleared', src, call.id)
+    end
+end)
+
+-- Dispatcher note: free text pinned to a call and shared with every unit on
+-- it — "suspect fled north on foot", "use the rear entrance".
+RegisterServerEvent('ps-dispatch:server:setCallNote', function(id, note)
+    local src = source
+    local call = findCall(id)
+    if not call then return end
+    if not mayModifyCall(src, call) then return end
+
+    if type(note) ~= 'string' then note = '' end
+    note = note:gsub('%s+$', ''):sub(1, 240)
+    call.dispatchNote = note ~= '' and note or nil
+
+    local payload = { id = call.id, note = call.dispatchNote }
+    if Config.FilteredBroadcast == false or not QBCore then
+        TriggerClientEvent('ps-dispatch:client:callNote', -1, payload)
+    else
+        for target, player in pairs(QBCore.Functions.GetQBPlayers()) do
+            local job = player.PlayerData and player.PlayerData.job
+            if job and (lib.table.contains(call.jobs, job.type) or lib.table.contains(call.jobs, job.name)) then
+                TriggerClientEvent('ps-dispatch:client:callNote', target, payload)
+            end
+        end
+    end
 end)

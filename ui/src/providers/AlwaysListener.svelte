@@ -2,7 +2,7 @@
 	import { ReceiveNUI } from '@utils/ReceiveNUI'
 	import { debugData } from '@utils/debugData'
 	import { SendNUI } from '@utils/SendNUI'
-	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, FOCUS_CALL } from '@store/stores';
+	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, FOCUS_CALL, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, SOUND_VOLUME, REDUCED_MOTION } from '@store/stores';
 
 	debugData([
 		{
@@ -88,6 +88,24 @@
 		STATS.set(data)
 	});
 
+	ReceiveNUI('callCleared', (id: any) => {
+		DISPATCH.update(list => (list || []).filter(d => d.data.id !== id));
+		DISPATCH_MENU.update(list => (list || []).filter(d => d.id !== id));
+	});
+
+	ReceiveNUI('callNote', (payload: any) => {
+		DISPATCH.update(list => {
+			const d = (list || []).find(x => x.data.id === payload.id);
+			if (d) d.data.dispatchNote = payload.note;
+			return [...(list || [])];
+		});
+		DISPATCH_MENU.update(list => {
+			const d = (list || []).find(x => x.id === payload.id);
+			if (d) d.dispatchNote = payload.note;
+			return [...(list || [])];
+		});
+	});
+
 	ReceiveNUI('clearAlerts', () => {
 		DISPATCH.set([])
 	});
@@ -109,6 +127,7 @@
 		if (data.alertPosition) ALERT_POSITION.set(data.alertPosition)
 		if (data.unattendedAfter) UNATTENDED_AFTER.set(data.unattendedAfter)
 		if (Array.isArray(data.pinnedCodes)) PINNED_CODES.set(data.pinnedCodes)
+		if (Array.isArray(data.alertTypes)) ALERT_TYPES.set(data.alertTypes)
 		// Per-player settings (dispatch settings modal) override the config
 		// defaults set above. localStorage survives relogs; bad JSON is
 		// ignored and the defaults stand.
@@ -120,13 +139,23 @@
 			if (typeof saved.blipsEnabled === 'boolean') BLIPS_ENABLED.set(saved.blipsEnabled)
 			if (typeof saved.priorityOnly === 'boolean') PRIORITY_ONLY.set(saved.priorityOnly)
 			if (typeof saved.compactAlerts === 'boolean') COMPACT_ALERTS.set(saved.compactAlerts)
+			if (Array.isArray(saved.mutedCodes)) MUTED_CODES.set(saved.mutedCodes)
+			if (typeof saved.alertDuration === 'number') ALERT_DURATION.set(saved.alertDuration)
+			if (typeof saved.soundVolume === 'number') SOUND_VOLUME.set(saved.soundVolume)
+			if (typeof saved.reducedMotion === 'boolean') REDUCED_MOTION.set(saved.reducedMotion)
 			// The two Lua-gated prefs must reach the client on every session
 			// start, not just when the modal is opened.
 			SendNUI('setDispatchPrefs', {
 				blips: typeof saved.blipsEnabled === 'boolean' ? saved.blipsEnabled : true,
 				priorityOnly: saved.priorityOnly === true,
+				mutedCodes: Array.isArray(saved.mutedCodes) ? saved.mutedCodes : [],
+				volume: typeof saved.soundVolume === 'number' ? saved.soundVolume : 0.25,
 			})
 		} catch (e) { /* defaults stand */ }
+		// CSS keyframes (priority flash, timer bar) are not Svelte
+		// transitions, so they need a document-level switch of their own.
+		REDUCED_MOTION.subscribe(v =>
+			document.documentElement.classList.toggle('psd-reduced-motion', v))
 		// Thumbnails only activate once the MDT's map image demonstrably
 		// loads — wrong resource name / missing MDT just means no thumbs,
 		// never a broken grey box on every alert.

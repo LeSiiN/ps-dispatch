@@ -1,5 +1,5 @@
 <script>
-  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, ALERT_POSITION, MAX_VISIBLE_ALERTS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, MAP_IMAGE, FOCUS_CALL, processedDispatchMenu } from '@store/stores';
+  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, ALERT_POSITION, MAX_VISIBLE_ALERTS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, MAP_IMAGE, FOCUS_CALL, OVERLAY_OPEN, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, SOUND_VOLUME, REDUCED_MOTION, processedDispatchMenu } from '@store/stores';
   import { fly, fade, scale, slide } from 'svelte/transition';
   import { flip } from 'svelte/animate';
   import { DUR, EASE_IN, EASE_OUT } from '@utils/motion';
@@ -17,6 +17,15 @@
   let mapZoom = 8;
   const MAP_ZOOM_MIN = 3;
   const MAP_ZOOM_MAX = 40;
+
+  // Tell the global Escape handler to stand down while a dialog is up.
+  $: OVERLAY_OPEN.set(settingsOpen || mapCall != null);
+
+  function onKeydown(e) {
+    if (e.code !== 'Escape') return;
+    if (mapCall) { mapCall = null; return; }      // topmost first
+    if (settingsOpen) settingsOpen = false;
+  }
 
   function openMap(dispatch) {
     mapCall = dispatch;
@@ -52,6 +61,20 @@
 
   // Persist the modal's choices per player; AlwaysListener re-applies them
   // over the config defaults on every session start.
+  let typesOpen = false;
+
+  function toggleMuted(code) {
+    MUTED_CODES.update(list =>
+      list.includes(code) ? list.filter(c => c !== code) : [...list, code]);
+    saveSettings();
+  }
+
+  // 'vehicleshots' -> 'Vehicle shots'
+  function prettyCode(code) {
+    const spaced = code.replace(/([a-z])([A-Z])/g, '$1 $2').replace(/_/g, ' ');
+    return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+  }
+
   function saveSettings() {
     try {
       localStorage.setItem('psd-settings', JSON.stringify({
@@ -61,11 +84,20 @@
         blipsEnabled: $BLIPS_ENABLED,
         priorityOnly: $PRIORITY_ONLY,
         compactAlerts: $COMPACT_ALERTS,
+        mutedCodes: $MUTED_CODES,
+        alertDuration: $ALERT_DURATION,
+        soundVolume: $SOUND_VOLUME,
+        reducedMotion: $REDUCED_MOTION,
       }));
     } catch (e) { /* storage unavailable — session-only */ }
-    // Blips and the priority filter gate work in Lua BEFORE the NUI is
-    // involved, so those two have to travel to the client as well.
-    SendNUI('setDispatchPrefs', { blips: $BLIPS_ENABLED, priorityOnly: $PRIORITY_ONLY });
+    // Blips, the priority filter, per-type mutes and volume all gate work in
+    // Lua BEFORE the NUI is involved, so they travel to the client as well.
+    SendNUI('setDispatchPrefs', {
+      blips: $BLIPS_ENABLED,
+      priorityOnly: $PRIORITY_ONLY,
+      mutedCodes: $MUTED_CODES,
+      volume: $SOUND_VOLUME,
+    });
   }
 
   // Dispatch board split: calls being worked (≥1 unit) live on the Active
@@ -103,6 +135,8 @@
     SendNUI("toggleAlerts", { boolean: $DISPATCH_DISABLED });
   }
 </script>
+
+<svelte:window on:keydown={onKeydown} />
 
 <div class="w-screen h-screen flex items-center justify-end">
 
@@ -285,6 +319,59 @@
             </div>
             <div class="pd-toggle" class:pd-toggle--on={$PRIORITY_ONLY} on:click={() => { PRIORITY_ONLY.update(v => !v); saveSettings(); }}></div>
           </div>
+
+          <div class="pd-form-group">
+            <span class="pd-form-label">Alert Duration</span>
+            <select class="pd-select" value={$ALERT_DURATION} on:change={(e) => { ALERT_DURATION.set(Number(e.target.value)); saveSettings(); }}>
+              <option value={0.5}>Short (0.5×)</option>
+              <option value={1}>Normal (1×)</option>
+              <option value={1.5}>Long (1.5×)</option>
+              <option value={2}>Very long (2×)</option>
+            </select>
+            <span class="pd-form-hint">How long alert cards stay on screen</span>
+          </div>
+
+          <div class="pd-form-group">
+            <span class="pd-form-label">Sound Volume</span>
+            <select class="pd-select" value={$SOUND_VOLUME} on:change={(e) => { SOUND_VOLUME.set(Number(e.target.value)); saveSettings(); }}>
+              <option value={0}>Muted</option>
+              <option value={0.1}>Quiet</option>
+              <option value={0.25}>Normal</option>
+              <option value={0.5}>Loud</option>
+              <option value={0.8}>Very loud</option>
+            </select>
+            <span class="pd-form-hint">Applies to alert sounds played through interact-sound</span>
+          </div>
+
+          <div class="pd-toggle-row">
+            <div class="pd-form-group">
+              <span class="pd-form-label">Reduced Motion</span>
+              <span class="pd-form-hint">Disable animations — calmer, and lighter on weak PCs</span>
+            </div>
+            <div class="pd-toggle" class:pd-toggle--on={$REDUCED_MOTION} on:click={() => { REDUCED_MOTION.update(v => !v); saveSettings(); }}></div>
+          </div>
+
+          {#if $ALERT_TYPES.length}
+            <div class="pd-form-group">
+              <button class="pd-btn w-full" on:click={() => typesOpen = !typesOpen}>
+                <i class="fas fa-filter"></i>
+                Alert Types
+                {#if $MUTED_CODES.length}<span class="pd-badge pd-badge--amber">{$MUTED_CODES.length} muted</span>{/if}
+                <i class="fas fa-chevron-{typesOpen ? 'up' : 'down'} ml-auto text-[9px] opacity-50"></i>
+              </button>
+              {#if typesOpen}
+                <div class="pd-types pd-scroll">
+                  {#each $ALERT_TYPES as code}
+                    <div class="pd-type-row">
+                      <span class="truncate">{prettyCode(code)}</span>
+                      <div class="pd-toggle pd-toggle--sm" class:pd-toggle--on={!$MUTED_CODES.includes(code)} on:click={() => toggleMuted(code)}></div>
+                    </div>
+                  {/each}
+                </div>
+                <span class="pd-form-hint">Muted types produce no popup, sound or blip for you</span>
+              {/if}
+            </div>
+          {/if}
 
           <div class="pd-toggle-row">
             <div class="pd-form-group">

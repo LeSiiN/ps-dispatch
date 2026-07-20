@@ -17,6 +17,14 @@ export const PRIORITY_ONLY = writable<boolean>(false);
 export const COMPACT_ALERTS = writable<boolean>(false);
 // Call the menu should jump to when it opens (set while an alert is on screen).
 export const FOCUS_CALL = writable<any>(null);
+// True while a modal (settings / enlarged map) is on top of the menu, so the
+// global Escape handler can close that instead of the whole menu.
+export const OVERLAY_OPEN = writable<boolean>(false);
+export const ALERT_TYPES = writable<string[]>([]);      // every codeName this server can send
+export const MUTED_CODES = writable<string[]>([]);      // personally muted alert types
+export const ALERT_DURATION = writable<number>(1);      // multiplier on Config.AlertTime
+export const SOUND_VOLUME = writable<number>(0.25);
+export const REDUCED_MOTION = writable<boolean>(false);
 export const STATS = writable<any>(null);
 export const RESPOND_KEYBIND = writable<string>("");
 

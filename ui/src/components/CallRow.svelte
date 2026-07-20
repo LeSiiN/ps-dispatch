@@ -17,6 +17,36 @@
 
   const emit = createEventDispatcher();
   let showAllUnits = false;
+  let confirmClear = false;
+  let noteDraft = '';
+  let noteOpen = false;
+
+  // Reset the transient editor state only when this row actually switches to
+  // a DIFFERENT call. Reacting to `dispatch` itself would fire on every store
+  // update (unit counts and notes hand down fresh array copies), closing the
+  // note editor mid-typing.
+  let lastId = null;
+  $: if (dispatch.id !== lastId) {
+    lastId = dispatch.id;
+    confirmClear = false;
+    noteOpen = false;
+  }
+
+  function openNote() {
+    noteDraft = dispatch.dispatchNote || '';
+    noteOpen = true;
+  }
+
+  function saveNote() {
+    SendNUI('setCallNote', { id: dispatch.id, note: noteDraft });
+    noteOpen = false;
+  }
+
+  function clearCall() {
+    if (!confirmClear) { confirmClear = true; return; }
+    SendNUI('clearCall', { id: dispatch.id });
+    confirmClear = false;
+  }
 
   // Live count support: a unitCount push is always newer than the units
   // array from the last list refresh, so it wins when present — in both
@@ -163,6 +193,26 @@
         <div class="pd-note">{dispatch.information}</div>
       {/if}
 
+      {#if dispatch.dispatchNote && !noteOpen}
+        <div class="pd-note pd-note--dispatch">
+          <span class="pd-note-tag">Dispatch</span>{dispatch.dispatchNote}
+        </div>
+      {/if}
+
+      {#if noteOpen}
+        <div class="pd-note-editor">
+          <input
+            class="pd-input"
+            placeholder="Note for every unit on this call…"
+            maxlength="240"
+            bind:value={noteDraft}
+            on:keydown={(e) => { if (e.key === 'Enter') saveNote(); if (e.key === 'Escape') noteOpen = false; }}
+          />
+          <button class="pd-btn pd-btn--green" on:click={saveNote}><i class="fas fa-check"></i></button>
+          <button class="pd-btn" on:click={() => noteOpen = false}><i class="fas fa-xmark"></i></button>
+        </div>
+      {/if}
+
       {#if dispatch.units.length > 0}
         <div class="mt-[7px]">
           <span class="pd-kv-label">Attached Units</span>
@@ -183,7 +233,17 @@
         </div>
       {/if}
 
-      <button class="pd-btn {CheckIfAttached(dispatch.units, $PLAYER.citizenid) ? 'pd-btn--red' : 'pd-btn--green'} w-full mt-[8px]"
+      <div class="flex gap-[5px] mt-[8px]">
+        <button class="pd-btn flex-1" on:click={noteOpen ? () => noteOpen = false : openNote}>
+          <i class="fas fa-pen"></i> {dispatch.dispatchNote ? 'Edit note' : 'Add note'}
+        </button>
+        <button class="pd-btn {confirmClear ? 'pd-btn--red' : ''} flex-1" on:click={clearCall}>
+          <i class="fas fa-{confirmClear ? 'triangle-exclamation' : 'circle-check'}"></i>
+          {confirmClear ? 'Confirm clear' : 'Clear call'}
+        </button>
+      </div>
+
+      <button class="pd-btn {CheckIfAttached(dispatch.units, $PLAYER.citizenid) ? 'pd-btn--red' : 'pd-btn--green'} w-full mt-[5px]"
         on:click={() => {
           if (CheckIfAttached(dispatch.units, $PLAYER.citizenid)) {
             SendNUI("detachUnit", dispatch );

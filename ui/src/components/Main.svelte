@@ -1,9 +1,9 @@
 <script>
   import { afterUpdate, onDestroy } from 'svelte';
-  import { DISPATCH, removeDispatch, RESPOND_KEYBIND, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, THUMBS_ENABLED, COMPACT_ALERTS } from '@store/stores';
-  import { fly, scale } from 'svelte/transition';
+  import { DISPATCH, removeDispatch, RESPOND_KEYBIND, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, THUMBS_ENABLED, COMPACT_ALERTS, ALERT_DURATION, REDUCED_MOTION } from '@store/stores';
+  import { fly } from 'svelte/transition';
   import { flip } from 'svelte/animate';
-  import { DUR, EASE_IN, EASE_OUT, alertFly } from '@utils/motion';
+  import { DUR, EASE_OUT, edgeFor, signalIn, signalOut } from '@utils/motion';
   import { timeAgo } from '@utils/timeAgo';
   import MapThumb from './MapThumb.svelte';
 
@@ -28,9 +28,11 @@
       const existing = expiry.get(data.id);
       if (existing && existing.rev === rev) continue;
       if (existing) clearTimeout(existing.handle);
+      // Personal multiplier on Config.AlertTime (settings modal).
+      const shown = Math.max(1000, timer * ($ALERT_DURATION || 1));
       expiry.set(data.id, {
         rev,
-        handle: setTimeout(() => { expiry.delete(data.id); removeNotification(data.id); }, timer),
+        handle: setTimeout(() => { expiry.delete(data.id); removeNotification(data.id); }, shown),
       });
     }
     for (const [id, e] of expiry) {
@@ -49,7 +51,9 @@
   // Entrance flies in from the nearest screen edge; the exit deliberately
   // does NOT mirror it — sliding back out reads as "undo", while a short
   // fade-and-shrink reads as "handled".
-  $: flyIn = { ...alertFly(vPos, hPos), duration: DUR.base, easing: EASE_IN };
+  // Which screen edge the stack is docked to — drives the wipe direction so
+  // alerts always open inward from the nearest edge.
+  $: alertEdge = edgeFor(vPos, hPos);
 
   $: ordered = notifications.slice().reverse(); // newest first
   $: capped = ordered.slice(0, $MAX_VISIBLE_ALERTS || 4);
@@ -85,10 +89,10 @@
 
     {#each visible as dispatch (dispatch.data.id)}
       <div
-        class="pd-panel w-[340px] {dispatch.data.priority == 1 ? 'pd-panel--priority' : ''} relative"
-        in:fly={flyIn}
-        out:scale={{ start: 0.94, opacity: 0, duration: DUR.exit, easing: EASE_OUT }}
-        animate:flip={{ duration: DUR.base, easing: EASE_OUT }}
+        class="pd-panel pd-alert w-[340px] {dispatch.data.priority == 1 ? 'pd-panel--priority pd-alert--urgent' : ''} relative"
+        in:signalIn={{ edge: alertEdge, priority: dispatch.data.priority == 1, duration: $REDUCED_MOTION ? 0 : DUR.alertIn }}
+        out:signalOut={{ edge: alertEdge, duration: $REDUCED_MOTION ? 0 : DUR.alertOut }}
+        animate:flip={{ duration: $REDUCED_MOTION ? 0 : DUR.base, easing: EASE_OUT }}
       >
 
         <!-- Header: what + when -->
@@ -179,6 +183,12 @@
             <div class="pd-note">{dispatch.data.information}</div>
           {/if}
 
+          {#if dispatch.data.dispatchNote}
+            <div class="pd-note pd-note--dispatch">
+              <span class="pd-note-tag">Dispatch</span>{dispatch.data.dispatchNote}
+            </div>
+          {/if}
+
           <!-- Live responder count: fed by the server's unitCount broadcasts -->
           {#if (dispatch.data.unitCount || 0) > 0 && !dispatch.data.responded}
             <div class="pd-person"><i class="fas fa-user-group"></i><span class="text-[#4ade80]">{dispatch.data.unitCount} responding</span></div>
@@ -201,7 +211,7 @@
         </div>
 
         {#key dispatch.data.count}
-          <div class="pd-toast-timer" style="--dur:{dispatch.timer}ms"></div>
+          <div class="pd-toast-timer" style="--dur:{Math.max(1000, dispatch.timer * ($ALERT_DURATION || 1))}ms"></div>
         {/key}
       </div>
     {/each}

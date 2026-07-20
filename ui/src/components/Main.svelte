@@ -1,6 +1,6 @@
 <script>
   import { afterUpdate, onDestroy } from 'svelte';
-  import { DISPATCH, removeDispatch, RESPOND_KEYBIND, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE } from '@store/stores';
+  import { DISPATCH, removeDispatch, RESPOND_KEYBIND, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, THUMBS_ENABLED } from '@store/stores';
   import { fly } from 'svelte/transition';
   import { timeAgo } from '@utils/timeAgo';
   import MapThumb from './MapThumb.svelte';
@@ -102,8 +102,8 @@
 
         <div class="px-[10px] py-[8px]">
           <!-- Map crop of the scene, centered on the call -->
-          {#if $MAP_IMAGE}
-            <MapThumb coords={dispatch.data.coords} priority={dispatch.data.priority} src={$MAP_IMAGE} />
+          {#if $MAP_IMAGE && $THUMBS_ENABLED}
+            <MapThumb coords={dispatch.data.displayCoords || dispatch.data.coords} radius={dispatch.data.mapRadius || 0} priority={dispatch.data.priority} src={$MAP_IMAGE} />
           {/if}
 
           <!-- Location strip: the first thing a responder needs -->

@@ -32,6 +32,7 @@ local function tryMergeCall(data)
                 call.count = (call.count or 1) + 1
                 call.time = now
                 call.coords = data.coords -- follow the most recent sighting
+                resolveBlipMeta(call)      -- keep display offset/radius in step
                 if data.information then call.information = data.information end
                 -- Escalation: a call this many reports deep is no longer
                 -- routine. The rebroadcast carries the new priority, so a
@@ -46,6 +47,25 @@ local function tryMergeCall(data)
         end
     end
     return nil
+end
+
+---@param data table
+-- Resolve blip metadata ONCE server-side from the shared config: the display
+-- position (randomly offset when the alert type wants imprecision) and the
+-- search radius. Every officer's blip, the map thumbnail and the menu then
+-- agree on the same spot — and the exact location never leaves the server's
+-- visuals for offset alerts.
+local function resolveBlipMeta(data)
+    local blip = Config.Blips and Config.Blips[data.codeName] or nil
+    local radius = blip and tonumber(blip.radius) or 0
+    if radius and radius > 0 then data.mapRadius = radius end
+    if blip and blip.offset then
+        local off = math.floor(tonumber(Config.MaxOffset) or 100)
+        data.displayCoords = {
+            x = data.coords.x + math.random(-off, off),
+            y = data.coords.y + math.random(-off, off),
+        }
+    end
 end
 
 ---@param data table The call to deliver
@@ -196,6 +216,7 @@ RegisterServerEvent('ps-dispatch:server:notify', function(data)
         return
     end
 
+    resolveBlipMeta(data)
     data.hotspot = registerHotspot(data.street)
     stats.calls = stats.calls + 1
     if data.codeName then
@@ -220,8 +241,28 @@ RegisterServerEvent('ps-dispatch:server:notify', function(data)
 end)
 
 RegisterServerEvent('ps-dispatch:server:attach', function(id, player)
+    local src = source
     if type(player) == 'table' and player.citizenid then
-        attachedBy[source] = player.citizenid
+        attachedBy[src] = player.citizenid
+        -- One call per unit: attaching somewhere implicitly detaches
+        -- everywhere else. The origin client gets told which calls it left
+        -- so those popups drop their "Responding" state.
+        for i = 1, #calls do
+            local call = calls[i]
+            if call.id ~= id and call.units then
+                local removed = false
+                for j = #call.units, 1, -1 do
+                    if call.units[j].citizenid == player.citizenid then
+                        table.remove(call.units, j)
+                        removed = true
+                    end
+                end
+                if removed then
+                    broadcastUnitCount(call)
+                    TriggerClientEvent('ps-dispatch:client:detachedFrom', src, call.id)
+                end
+            end
+        end
     end
     for i=1, #calls do
         if calls[i]['id'] == id then
@@ -345,3 +386,70 @@ if (Config.CallLifetime or 0) > 0 then
         end
     end)
 end
+
+-- ── Targeted alerts ──────────────────────────────────────────────────────────
+-- Send an alert to SPECIFIC players instead of a whole job — e.g. the MDT
+-- pushing a custom assignment to one patrol. Usage from any server script:
+--
+--   exports['ps-dispatch']:SendTargetedAlert({ srcA, srcB }, {
+--       message = 'Check on subject', code = '10-25', icon = 'fas fa-envelope',
+--       coords = vector3(x, y, z), street = 'Alta Street',
+--       information = 'Sent by dispatch', priority = 2,
+--       addToList = false, -- true: also appears in everyone's call menu
+--   })
+--
+-- Targeted alerts skip merge/hotspot/stat handling by design: they are
+-- direct messages, not incident reports.
+local function sendTargetedAlert(targets, data)
+    if type(targets) == 'number' then targets = { targets } end
+    if type(targets) ~= 'table' or #targets == 0 then return false end
+    if type(data) ~= 'table' or type(data.message) ~= 'string' then return false end
+
+    callCount = callCount + 1
+    data.id = callCount
+    data.time = os.time() * 1000
+    data.units = data.units or {}
+    data.responses = {}
+    data.count = 1
+    data.priority = data.priority or 2
+    data.code = data.code or 'DIRECT'
+    data.codeName = data.codeName or 'targeted'
+    data.icon = data.icon or 'fas fa-envelope'
+    -- Receiving clients gate on jobs + duty; default lets any officer pass.
+    data.jobs = (type(data.jobs) == 'table' and #data.jobs > 0) and data.jobs or { 'leo', 'ems' }
+    -- Custom codeNames won't be in Config.Blips, and the client's blip path
+    -- dereferences the blip table unconditionally — without this fallback a
+    -- targeted alert with an unknown code would error client-side.
+    if not (Config.Blips and Config.Blips[data.codeName]) and type(data.alert) ~= 'table' then
+        data.alert = {
+            sprite = 488, color = 3, scale = 1.0, length = 2, radius = 0,
+            sound = 'Lose_1st', sound2 = 'GTAO_FM_Events_Soundset',
+            offset = false, flash = false,
+        }
+    end
+    if data.coords and data.coords.x then resolveBlipMeta(data) end
+
+    if data.addToList then
+        if #calls >= Config.MaxCallList then table.remove(calls, 1) end
+        calls[#calls + 1] = data
+    end
+    data.addToList = nil
+
+    for i = 1, #targets do
+        local target = tonumber(targets[i])
+        if target and target > 0 then
+            TriggerClientEvent('ps-dispatch:client:notify', target, data)
+        end
+    end
+    return true
+end
+
+exports('SendTargetedAlert', sendTargetedAlert)
+
+-- Same thing as a server event for resources that prefer events over
+-- exports. Guarded so only server-side triggers are honored — a client must
+-- never be able to push targeted alerts to other players.
+RegisterNetEvent('ps-dispatch:server:targetAlert', function(targets, data)
+    if source and tonumber(source) and tonumber(source) > 0 then return end
+    sendTargetedAlert(targets, data)
+end)

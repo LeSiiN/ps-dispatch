@@ -21,7 +21,9 @@ function GetPlayerGender()
 end
 
 function GetIsHandcuffed()
-    return QBCore.Functions.GetPlayerData()?.metadata?.ishandcuffed
+    -- Standard Lua instead of CfxLua's `?.` so the file passes plain luac.
+    local pd = QBCore.Functions.GetPlayerData()
+    return pd and pd.metadata and pd.metadata.ishandcuffed
 end
 
 function IsOnDuty()
@@ -50,7 +52,13 @@ end
 function GetStreetAndZone(coords)
     local zone = GetLabelText(GetNameOfZone(coords.x, coords.y, coords.z))
     local street = GetStreetNameFromHashKey(GetStreetNameAtCoord(coords.x, coords.y, coords.z))
-    return street .. ", " .. zone
+    -- Unnamed roads (dirt tracks, most of Cayo) return an empty street —
+    -- blindly concatenating produced leading-comma strings like ", Cayo
+    -- Perico". Join only the parts that exist.
+    local parts = {}
+    if street and street ~= '' then parts[#parts + 1] = street end
+    if zone and zone ~= '' and zone ~= 'NULL' then parts[#parts + 1] = zone end
+    return table.concat(parts, ', ')
 end
 
 ---@param vehicle string

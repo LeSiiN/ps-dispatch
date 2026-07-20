@@ -221,12 +221,13 @@ local function createBlip(data, blipData)
     local scale = blipData.scale or blipData.alert.scale or 1.0
     local flash = blipData.flash or false
 
-    if blipData.offset then
-        local offsetX, offsetY = randomOffset(data.coords.x, data.coords.y, Config.MaxOffset)
-        blip, radius = createBlipData({ x = offsetX, y = offsetY, z = data.coords.z }, blipData.radius, sprite, color, scale, flash)
-    else
-        blip, radius = createBlipData(data.coords, blipData.radius, sprite, color, scale, flash)
-    end
+    -- The server resolves ONE offset per call (data.displayCoords), shared
+    -- by every officer's blip AND the NUI map thumbnail. Previously each
+    -- client rolled its own random offset, so no two officers saw the same
+    -- spot — and the thumbnail pointed at the exact location, defeating the
+    -- offset entirely.
+    local at = data.displayCoords or data.coords
+    blip, radius = createBlipData({ x = at.x, y = at.y, z = data.coords.z or 0 }, blipData.radius, sprite, color, scale, flash)
     blips[data.id] = blip
     radius2[data.id] = radius
 
@@ -254,6 +255,9 @@ local function createBlip(data, blipData)
 end
 
 local function addBlip(data, blipData)
+    -- Defensive: an alert whose codeName has no blip config and no inline
+    -- alert table gets no blip/sound rather than a nil-index error.
+    if type(blipData) ~= 'table' then return end
     -- A merged repeat of an existing call keeps its original blip: the fade
     -- thread for data.id is still running, spawning a second one would leak
     -- the first handle and double up map markers.
@@ -292,6 +296,12 @@ local OpenDispatchMenu = lib.addKeybind({
 })
 
 -- Events
+-- Server detached us from another call (one-call-per-unit rule): drop that
+-- popup's "Responding" state.
+RegisterNetEvent('ps-dispatch:client:detachedFrom', function(id)
+    SendNUIMessage({ action = 'callUnresponded', data = id })
+end)
+
 -- Live "N responding" updates for visible alert popups.
 RegisterNetEvent('ps-dispatch:client:unitCount', function(payload)
     SendNUIMessage({ action = 'unitCount', data = payload })
@@ -318,9 +328,10 @@ RegisterNetEvent('ps-dispatch:client:notify', function(data)
     -- single most useful fact for deciding whether to respond, and the menu
     -- can't provide it (server data has no receiver position). Metres;
     -- formatted NUI-side.
-    if data.coords and data.coords.x then
+    local dc = data.displayCoords or data.coords
+    if dc and dc.x then
         local pcoords = GetEntityCoords(cache.ped or PlayerPedId())
-        local dx, dy = pcoords.x - data.coords.x, pcoords.y - data.coords.y
+        local dx, dy = pcoords.x - dc.x, pcoords.y - dc.y
         data.distance = math.floor(math.sqrt(dx * dx + dy * dy))
     end
 
@@ -371,6 +382,15 @@ AddEventHandler('QBCore:Client:OnPlayerUnload', removeZones)
 AddEventHandler('onResourceStart', function(resourceName)
     if resourceName ~= GetCurrentResourceName() then return end
     setupDispatch()
+    -- Restart parity: zones were only ever created on OnPlayerLoaded, so a
+    -- resource restart silently killed hunting/no-dispatch detection until
+    -- the next relog. (This is also why resmon showed ~0.03ms after joining
+    -- but 0.00 after a restart — the cost IS the ox_lib zone frame loop, and
+    -- after a restart it simply wasn't running anymore. With empty zone
+    -- lists in the config there are no zones and no frame loop at all.)
+    if LocalPlayer.state.isLoggedIn then
+        createZones()
+    end
 end)
 
 AddEventHandler('onResourceStop', function(resourceName)

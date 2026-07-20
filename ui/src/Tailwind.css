@@ -70,9 +70,9 @@ html, body {
     border-radius: 4px;
     font-size: 11px;
     flex-shrink: 0;
-    background: rgba(6, 182, 212, 0.12);
-    color: #22d3ee;
-    border: 1px solid rgba(6, 182, 212, 0.25);
+    background: rgba(59, 130, 246, 0.12);
+    color: #93c5fd;
+    border: 1px solid rgba(59, 130, 246, 0.25);
 }
 .pd-icon--priority { background: rgba(239, 68, 68, 0.12); color: #f87171; border-color: rgba(239, 68, 68, 0.3); }
 .pd-icon--green { background: rgba(34, 197, 94, 0.12); color: #4ade80; border-color: rgba(34, 197, 94, 0.25); }
@@ -88,7 +88,7 @@ html, body {
     color: rgba(255, 255, 255, 0.45);
     white-space: nowrap;
 }
-.pd-badge--cyan  { background: rgba(6, 182, 212, 0.12);  color: #22d3ee; }
+.pd-badge--cyan  { background: rgba(59, 130, 246, 0.12); color: #93c5fd; } /* police blue (MDT accent) */
 .pd-badge--red   { background: rgba(239, 68, 68, 0.14);  color: #f87171; }
 .pd-badge--green { background: rgba(34, 197, 94, 0.12);  color: #4ade80; }
 .pd-badge--blue  { background: rgba(59, 130, 246, 0.12); color: #93c5fd; }
@@ -212,7 +212,7 @@ html, body {
     position: absolute;
     left: 0; top: 0; bottom: 0;
     width: 3px;
-    background: rgba(6, 182, 212, 0.75);
+    background: rgba(59, 130, 246, 0.75);
 }
 .pd-toast--priority { border-color: rgba(239, 68, 68, 0.35); }
 .pd-toast--priority .pd-toast-rail { background: rgba(239, 68, 68, 0.85); }
@@ -226,7 +226,7 @@ html, body {
     position: absolute;
     left: 0; bottom: 0;
     height: 2px;
-    background: rgba(6, 182, 212, 0.55);
+    background: rgba(59, 130, 246, 0.55);
     animation: pdToastTimer linear forwards;
     animation-duration: var(--dur, 5000ms);
 }
@@ -379,14 +379,112 @@ html, body {
     height: 10px;
     transform: translate(-50%, -50%);
     border-radius: 50%;
-    background: #22d3ee;
+    background: #60a5fa;
     border: 2px solid rgba(10, 12, 14, 0.9);
-    box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.25), 0 0 8px rgba(6, 182, 212, 0.6);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25), 0 0 8px rgba(59, 130, 246, 0.6);
 }
 .pd-thumb-marker--red {
     background: #f87171;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.25), 0 0 8px rgba(239, 68, 68, 0.6);
 }
+
+/* Search-radius circle inside the map thumbnail: sized in % of the map
+   layer so it scales with the zoom automatically. */
+.pd-thumb-radius {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.14);
+    border: 1.5px solid rgba(59, 130, 246, 0.55);
+    box-shadow: inset 0 0 14px rgba(59, 130, 246, 0.2);
+    transform: translate(-50%, -50%);
+}
+.pd-thumb-radius--red {
+    background: rgba(239, 68, 68, 0.14);
+    border-color: rgba(239, 68, 68, 0.55);
+    box-shadow: inset 0 0 14px rgba(239, 68, 68, 0.2);
+}
+
+/* ── Settings modal (ImpoundForm anatomy) ─────────────────────────────────
+   Overlay + centered panel: rgba(26,28,33,.97), 6px radius, deep shadow,
+   13/20 header with hairline, label-over-control form groups. */
+.pd-modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 60;
+}
+.pd-modal {
+    width: 330px;
+    background: rgba(26, 28, 33, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
+    overflow: hidden;
+}
+.pd-modal-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.09);
+}
+.pd-modal-title { font-size: 14px; font-weight: 600; color: rgba(255, 255, 255, 0.85); flex: 1; }
+.pd-modal-body { padding: 14px 20px 18px; display: flex; flex-direction: column; gap: 13px; }
+
+.pd-form-group { display: flex; flex-direction: column; gap: 5px; }
+.pd-form-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.45);
+}
+.pd-form-hint { font-size: 10px; color: rgba(255, 255, 255, 0.3); margin-top: 2px; }
+
+.pd-select {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 12px;
+    padding: 7px 10px;
+    outline: none;
+    color-scheme: dark;
+    cursor: pointer;
+    transition: border-color 0.15s;
+}
+.pd-select:hover, .pd-select:focus { border-color: rgba(255, 255, 255, 0.16); }
+
+/* Toggle row: label left, MDT slider right */
+.pd-toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pd-toggle {
+    position: relative;
+    width: 34px;
+    height: 18px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    cursor: pointer;
+    transition: all 0.15s;
+    flex-shrink: 0;
+}
+.pd-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.65);
+    transition: all 0.15s;
+}
+.pd-toggle--on { background: rgb(41, 158, 109); border-color: rgb(41, 158, 109); }
+.pd-toggle--on::after { left: 18px; background: #fff; }
 
 /* Amber triage badge for calls sitting unattended too long */
 .pd-badge--amber { background: rgba(245, 158, 11, 0.13); color: #fbbf24; }

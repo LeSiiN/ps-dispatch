@@ -19,6 +19,7 @@
   export let priority = 2;       // 1 = red marker
   export let src = null;         // map image url (already probe-verified)
   export let height = 84;        // px
+  export let radius = 0;         // metres; >0 draws a search area, no dot
 
   // How much of the map the crop shows: the full image spans ~12,350 world
   // units, so ZOOM 14 ≈ an 880 m wide neighborhood view in a 320px thumb.
@@ -28,6 +29,13 @@
   $: fy = coords ? ((-0.0205 * coords.y + 172.8) * 4) / 1024 : null;
   // Off-map calls (e.g. Cayo Perico) fall outside 0..1 → render nothing.
   $: valid = src && fx != null && fx >= 0 && fx <= 1 && fy >= 0 && fy <= 1;
+
+  // Radius circle diameter as a fraction of the (square) map layer: the CRS
+  // maps one world unit to 0.02072·4/1024 of the image width, so a call
+  // radius R spans 2R times that. Rendered inside the map layer itself, it
+  // scales with ZOOM for free.
+  const WORLD_TO_IMG = (0.02072 * 4) / 1024;
+  $: circlePct = radius > 0 ? radius * 2 * WORLD_TO_IMG * 100 : 0;
 </script>
 
 {#if valid}
@@ -35,7 +43,18 @@
     <div
       class="pd-thumb-map"
       style="width:{ZOOM * 100}%; background-image:url('{src}'); transform:translate(-{fx * 100}%, -{fy * 100}%);"
-    ></div>
-    <div class="pd-thumb-marker {priority == 1 ? 'pd-thumb-marker--red' : ''}"></div>
+    >
+      {#if circlePct > 0}
+        <!-- Search area instead of an exact point: the alert only knows a
+             neighborhood (offset + radius), and the thumb honors that. -->
+        <div
+          class="pd-thumb-radius {priority == 1 ? 'pd-thumb-radius--red' : ''}"
+          style="left:{fx * 100}%; top:{fy * 100}%; width:{circlePct}%; padding-top:{circlePct}%;"
+        ></div>
+      {/if}
+    </div>
+    {#if circlePct <= 0}
+      <div class="pd-thumb-marker {priority == 1 ? 'pd-thumb-marker--red' : ''}"></div>
+    {/if}
   </div>
 {/if}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ReceiveNUI } from '@utils/ReceiveNUI'
 	import { debugData } from '@utils/debugData'
-	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, shortCalls } from '@store/stores';
+	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED } from '@store/stores';
 
 	debugData([
 		{
@@ -100,6 +100,15 @@
 		if (data.alertPosition) ALERT_POSITION.set(data.alertPosition)
 		if (data.unattendedAfter) UNATTENDED_AFTER.set(data.unattendedAfter)
 		if (Array.isArray(data.pinnedCodes)) PINNED_CODES.set(data.pinnedCodes)
+		// Per-player settings (dispatch settings modal) override the config
+		// defaults set above. localStorage survives relogs; bad JSON is
+		// ignored and the defaults stand.
+		try {
+			const saved = JSON.parse(localStorage.getItem('psd-settings') || '{}')
+			if (typeof saved.alertPosition === 'string') ALERT_POSITION.set(saved.alertPosition)
+			if (typeof saved.maxVisibleAlerts === 'number') MAX_VISIBLE_ALERTS.set(saved.maxVisibleAlerts)
+			if (typeof saved.thumbsEnabled === 'boolean') THUMBS_ENABLED.set(saved.thumbsEnabled)
+		} catch (e) { /* defaults stand */ }
 		// Thumbnails only activate once the MDT's map image demonstrably
 		// loads — wrong resource name / missing MDT just means no thumbs,
 		// never a broken grey box on every alert.
@@ -109,7 +118,6 @@
 			probe.onerror = () => MAP_IMAGE.set(null)
 			probe.src = data.mapImage
 		}
-		shortCalls.set(data.shortCalls)
 	});
 
 </script>

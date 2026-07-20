@@ -5,7 +5,7 @@
   // the pending list and the Active Calls board share one implementation.
   import { createEventDispatcher } from 'svelte';
   import { slide } from 'svelte/transition';
-  import { PLAYER, Locale, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES } from '@store/stores';
+  import { PLAYER, Locale, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, THUMBS_ENABLED } from '@store/stores';
   import { timeAgo } from '@utils/timeAgo';
   import { SendNUI } from '@utils/SendNUI';
   import MapThumb from './MapThumb.svelte';
@@ -99,8 +99,8 @@
 
   {#if expanded}
     <div class="pd-detail" transition:slide={{ duration: 200 }}>
-      {#if $MAP_IMAGE}
-        <MapThumb coords={dispatch.coords} priority={dispatch.priority} src={$MAP_IMAGE} height={92} />
+      {#if $MAP_IMAGE && $THUMBS_ENABLED}
+        <MapThumb coords={dispatch.displayCoords || dispatch.coords} radius={dispatch.mapRadius || 0} priority={dispatch.priority} src={$MAP_IMAGE} height={92} />
       {/if}
       {#if dispatch.street || dispatch.heading}
         <div class="pd-strip">

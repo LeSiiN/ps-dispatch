@@ -1,11 +1,30 @@
 <script>
-  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, processedDispatchMenu } from '@store/stores';
+  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, ALERT_POSITION, MAX_VISIBLE_ALERTS, THUMBS_ENABLED, MAP_IMAGE, processedDispatchMenu } from '@store/stores';
   import { fly } from 'svelte/transition';
   import { SendNUI } from '@utils/SendNUI'
   import CallRow from './CallRow.svelte'
 
   let activeCallId = null;
   let statsOpen = false;
+  let settingsOpen = false;
+
+  const ALERT_POSITIONS = [
+    ['top-left', 'Top Left'], ['top-center', 'Top Center'], ['top-right', 'Top Right'],
+    ['center-left', 'Center Left'], ['center-right', 'Center Right'],
+    ['bottom-left', 'Bottom Left'], ['bottom-center', 'Bottom Center'], ['bottom-right', 'Bottom Right'],
+  ];
+
+  // Persist the modal's choices per player; AlwaysListener re-applies them
+  // over the config defaults on every session start.
+  function saveSettings() {
+    try {
+      localStorage.setItem('psd-settings', JSON.stringify({
+        alertPosition: $ALERT_POSITION,
+        maxVisibleAlerts: $MAX_VISIBLE_ALERTS,
+        thumbsEnabled: $THUMBS_ENABLED,
+      }));
+    } catch (e) { /* storage unavailable — session-only */ }
+  }
 
   // Dispatch board split: calls being worked (≥1 unit) live on the Active
   // Calls panel to the left; the main list keeps only what still needs
@@ -72,6 +91,9 @@
         <span class="pd-badge">{pendingCalls.length} pending</span>
       {/if}
       <div class="flex items-center gap-[4px] ml-auto">
+        <button class="pd-ctl" class:pd-ctl--active={settingsOpen} title="Settings" on:click={() => settingsOpen = true}>
+          <i class="fas fa-gear"></i>
+        </button>
         <button class="pd-ctl" class:pd-ctl--active={statsOpen} title="Session stats" on:click={toggleStats}>
           <i class="fas fa-chart-simple"></i>
         </button>
@@ -113,4 +135,69 @@
       {/if}
     </div>
   </div>
+
+  {#if settingsOpen}
+    <!-- Settings modal — ImpoundForm anatomy: overlay, centered panel,
+         13/20 header with hairline, label-over-control form groups. -->
+    <div class="pd-modal-overlay" on:click|self={() => settingsOpen = false}>
+      <div class="pd-modal">
+        <div class="pd-modal-head">
+          <div class="pd-icon"><i class="fas fa-gear"></i></div>
+          <span class="pd-modal-title">Dispatch Settings</span>
+          <button class="pd-ctl" title="Close" on:click={() => settingsOpen = false}>
+            <i class="fas fa-xmark"></i>
+          </button>
+        </div>
+        <div class="pd-modal-body">
+
+          <div class="pd-form-group">
+            <span class="pd-form-label">Alert Position</span>
+            <select class="pd-select" value={$ALERT_POSITION} on:change={(e) => { ALERT_POSITION.set(e.target.value); saveSettings(); }}>
+              {#each ALERT_POSITIONS as [value, label]}
+                <option {value}>{label}</option>
+              {/each}
+            </select>
+            <span class="pd-form-hint">Where incoming alert cards appear on screen</span>
+          </div>
+
+          <div class="pd-form-group">
+            <span class="pd-form-label">Max Visible Alerts</span>
+            <select class="pd-select" value={$MAX_VISIBLE_ALERTS} on:change={(e) => { MAX_VISIBLE_ALERTS.set(Number(e.target.value)); saveSettings(); }}>
+              {#each [2, 3, 4, 5, 6] as n}
+                <option value={n}>{n}</option>
+              {/each}
+            </select>
+            <span class="pd-form-hint">Older alerts collapse into "+N more"</span>
+          </div>
+
+          {#if $MAP_IMAGE}
+            <div class="pd-toggle-row">
+              <div class="pd-form-group">
+                <span class="pd-form-label">Map Thumbnails</span>
+                <span class="pd-form-hint">Scene preview on alerts and expanded calls</span>
+              </div>
+              <div class="pd-toggle" class:pd-toggle--on={$THUMBS_ENABLED} on:click={() => { THUMBS_ENABLED.update(v => !v); saveSettings(); }}></div>
+            </div>
+          {/if}
+
+          <div class="pd-toggle-row">
+            <div class="pd-form-group">
+              <span class="pd-form-label">Alert Sounds</span>
+              <span class="pd-form-hint">Audio cue when a new alert arrives</span>
+            </div>
+            <div class="pd-toggle" class:pd-toggle--on={!$DISPATCH_MUTED} on:click={toggleMute}></div>
+          </div>
+
+          <div class="pd-toggle-row">
+            <div class="pd-form-group">
+              <span class="pd-form-label">Receive Alerts</span>
+              <span class="pd-form-hint">Master switch — popups, sounds and blips</span>
+            </div>
+            <div class="pd-toggle" class:pd-toggle--on={!$DISPATCH_DISABLED} on:click={toggleAlerts}></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>

@@ -5,6 +5,7 @@
   // the pending list and the Active Calls board share one implementation.
   import { createEventDispatcher } from 'svelte';
   import { slide } from 'svelte/transition';
+  import { DUR, EASE_OUT } from '@utils/motion';
   import { PLAYER, Locale, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, THUMBS_ENABLED } from '@store/stores';
   import { timeAgo } from '@utils/timeAgo';
   import { SendNUI } from '@utils/SendNUI';
@@ -51,7 +52,7 @@
   }
 </script>
 
-<div>
+<div data-call-id={dispatch.id}>
   <button class="pd-row {dispatch.priority == 1 ? 'pd-row--priority' : ''}" class:pd-row--open={expanded} on:click={() => emit('toggle')}>
     <div class="pd-icon {dispatch.priority == 1 ? 'pd-icon--priority' : ''}">
       <i class={dispatch.icon}></i>
@@ -98,9 +99,14 @@
   </button>
 
   {#if expanded}
-    <div class="pd-detail" transition:slide={{ duration: 200 }}>
+    <div class="pd-detail" transition:slide={{ duration: DUR.base, easing: EASE_OUT }}>
       {#if $MAP_IMAGE && $THUMBS_ENABLED}
-        <MapThumb coords={dispatch.displayCoords || dispatch.coords} radius={dispatch.mapRadius || 0} priority={dispatch.priority} src={$MAP_IMAGE} height={92} />
+        <!-- Click opens the enlarged, zoomable map (handled by the parent so
+             there is only ever one overlay). -->
+        <div class="pd-thumb-click" title="Enlarge map" on:click={() => emit('expandMap')}>
+          <MapThumb coords={dispatch.displayCoords || dispatch.coords} radius={dispatch.mapRadius || 0} priority={dispatch.priority} src={$MAP_IMAGE} height={92} />
+          <span class="pd-thumb-zoom"><i class="fas fa-magnifying-glass-plus"></i></span>
+        </div>
       {/if}
       {#if dispatch.street || dispatch.heading}
         <div class="pd-strip">

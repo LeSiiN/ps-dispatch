@@ -2,7 +2,7 @@
 	import { ReceiveNUI } from '@utils/ReceiveNUI'
 	import { debugData } from '@utils/debugData'
 	import { SendNUI } from '@utils/SendNUI'
-	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS } from '@store/stores';
+	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, FOCUS_CALL } from '@store/stores';
 
 	debugData([
 		{
@@ -86,6 +86,14 @@
 
 	ReceiveNUI('stats', (data: any) => {
 		STATS.set(data)
+	});
+
+	ReceiveNUI('clearAlerts', () => {
+		DISPATCH.set([])
+	});
+
+	ReceiveNUI('focusCall', (id: any) => {
+		FOCUS_CALL.set(id ?? null)
 	});
 
 	ReceiveNUI('setDispatchs', (data: any) => {

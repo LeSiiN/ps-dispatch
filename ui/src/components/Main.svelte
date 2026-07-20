@@ -1,7 +1,9 @@
 <script>
   import { afterUpdate, onDestroy } from 'svelte';
   import { DISPATCH, removeDispatch, RESPOND_KEYBIND, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, THUMBS_ENABLED, COMPACT_ALERTS } from '@store/stores';
-  import { fly } from 'svelte/transition';
+  import { fly, scale } from 'svelte/transition';
+  import { flip } from 'svelte/animate';
+  import { DUR, EASE_IN, EASE_OUT, alertFly } from '@utils/motion';
   import { timeAgo } from '@utils/timeAgo';
   import MapThumb from './MapThumb.svelte';
 
@@ -44,7 +46,10 @@
   }[vPos] + ' ' + {
     left: 'justify-start', center: 'justify-center', right: 'justify-end',
   }[hPos];
-  $: flyParams = hPos === 'left' ? { x: -380 } : hPos === 'right' ? { x: 380 } : { y: vPos === 'bottom' ? 140 : -140 };
+  // Entrance flies in from the nearest screen edge; the exit deliberately
+  // does NOT mirror it — sliding back out reads as "undo", while a short
+  // fade-and-shrink reads as "handled".
+  $: flyIn = { ...alertFly(vPos, hPos), duration: DUR.base, easing: EASE_IN };
 
   $: ordered = notifications.slice().reverse(); // newest first
   $: capped = ordered.slice(0, $MAX_VISIBLE_ALERTS || 4);
@@ -75,11 +80,16 @@
 <div class="w-screen h-screen flex {wrapClasses} pointer-events-none p-[16px]">
   <div class="flex flex-col gap-[7px] {hPos === 'right' ? 'items-end' : hPos === 'left' ? 'items-start' : 'items-center'}">
     {#if hiddenCount > 0 && vPos === 'top'}
-      <p class="pd-more">+{hiddenCount} more active {hiddenCount === 1 ? 'alert' : 'alerts'}</p>
+      <p class="pd-more" transition:fly={{ y: -6, duration: DUR.fast, easing: EASE_OUT }}>+{hiddenCount} more active {hiddenCount === 1 ? 'alert' : 'alerts'}</p>
     {/if}
 
     {#each visible as dispatch (dispatch.data.id)}
-      <div class="pd-panel w-[340px] {dispatch.data.priority == 1 ? 'pd-panel--priority' : ''} relative" transition:fly={flyParams}>
+      <div
+        class="pd-panel w-[340px] {dispatch.data.priority == 1 ? 'pd-panel--priority' : ''} relative"
+        in:fly={flyIn}
+        out:scale={{ start: 0.94, opacity: 0, duration: DUR.exit, easing: EASE_OUT }}
+        animate:flip={{ duration: DUR.base, easing: EASE_OUT }}
+      >
 
         <!-- Header: what + when -->
         <div class="pd-head">
@@ -197,7 +207,7 @@
     {/each}
 
     {#if hiddenCount > 0 && vPos !== 'top'}
-      <p class="pd-more">+{hiddenCount} more active {hiddenCount === 1 ? 'alert' : 'alerts'}</p>
+      <p class="pd-more" transition:fly={{ y: 6, duration: DUR.fast, easing: EASE_OUT }}>+{hiddenCount} more active {hiddenCount === 1 ? 'alert' : 'alerts'}</p>
     {/if}
   </div>
 </div>

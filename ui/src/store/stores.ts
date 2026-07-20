@@ -15,6 +15,8 @@ export const THUMBS_ENABLED = writable<boolean>(true);
 export const BLIPS_ENABLED = writable<boolean>(true);
 export const PRIORITY_ONLY = writable<boolean>(false);
 export const COMPACT_ALERTS = writable<boolean>(false);
+// Call the menu should jump to when it opens (set while an alert is on screen).
+export const FOCUS_CALL = writable<any>(null);
 export const STATS = writable<any>(null);
 export const RESPOND_KEYBIND = writable<string>("");
 

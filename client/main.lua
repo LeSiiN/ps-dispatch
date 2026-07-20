@@ -154,6 +154,19 @@ local function isJobValid(data)
     return false
 end
 
+-- The call the on-screen alert belongs to, and when that alert disappears.
+-- Opening the menu while an alert is up jumps straight to that call instead
+-- of dropping the officer into an unsorted list.
+local activeAlertId = nil
+local activeAlertUntil = 0
+
+local function currentAlertCallId()
+    if activeAlertId and GetGameTimer() < activeAlertUntil then
+        return activeAlertId
+    end
+    return nil
+end
+
 local function openMenu()
     if not isJobValid(PlayerData.job.type) then return end
 
@@ -162,6 +175,14 @@ local function openMenu()
         lib.notify({ description = locale('no_calls'), position = 'top', type = 'error' })
     else
         SendNUIMessage({ action = 'setDispatchs', data = calls, })
+        -- Alert still on screen? Open straight onto that call, expanded.
+        SendNUIMessage({ action = 'focusCall', data = currentAlertCallId() })
+        -- Those popups have served their purpose now that the same calls are
+        -- on screen in the menu — clear the stack instead of letting it hover
+        -- over the panel. Alerts arriving WHILE the menu is open still show:
+        -- the menu list is a snapshot, so they'd be missed otherwise.
+        SendNUIMessage({ action = 'clearAlerts' })
+        activeAlertId = nil
         toggleUI(true)
     end
 end
@@ -377,14 +398,19 @@ RegisterNetEvent('ps-dispatch:client:notify', function(data)
         addBlip(data, Config.Blips[data.codeName] or data.alert)
     end
 
+    -- Only the respond keybind is gated by the alert window. The menu key is
+    -- a separate bind (Config.OpenDispatchMenu), so disabling it here just
+    -- swallowed presses during the very seconds an officer is most likely to
+    -- want the menu.
     RespondToDispatch:disable(false)
-    OpenDispatchMenu:disable(true)
+
+    activeAlertId = data.id
+    activeAlertUntil = GetGameTimer() + timer
 
     respondWindowToken = respondWindowToken + 1
     local token = respondWindowToken
     SetTimeout(timer, function()
         if token ~= respondWindowToken then return end -- a newer alert owns the window
-        OpenDispatchMenu:disable(false)
         RespondToDispatch:disable(true)
     end)
 end)

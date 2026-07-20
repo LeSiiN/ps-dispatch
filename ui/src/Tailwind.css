@@ -525,6 +525,156 @@ html, body {
 .pd-toggle--on { background: rgb(41, 158, 109); border-color: rgb(41, 158, 109); }
 .pd-toggle--on::after { left: 18px; background: #fff; }
 
+/* Priority alert arrival: one red wash across the card, then gone. The
+   entrance wipe reveals it mid-flash, so the card appears to "spark" as the
+   call lands — urgency communicated in the first 300ms, before anyone has
+   read a word. Non-priority alerts get no flash at all. */
+.pd-alert--urgent::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(100deg, rgba(239, 68, 68, 0.3), rgba(239, 68, 68, 0.05) 60%);
+    animation: pdUrgentFlash 780ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes pdUrgentFlash {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
+}
+
+/* The timer bar leads with a brief glow so the countdown registers as
+   deliberate rather than as a stray line at the bottom of the card. */
+.pd-alert .pd-toast-timer { box-shadow: 0 0 6px rgba(59, 130, 246, 0.55); }
+.pd-alert.pd-panel--priority .pd-toast-timer { box-shadow: 0 0 6px rgba(239, 68, 68, 0.6); }
+
+/* Dispatcher note: same quoted style as the caller information, but tagged
+   and tinted so units can tell "what the caller said" from "what dispatch
+   told us". */
+.pd-note--dispatch {
+    border-left-color: rgba(59, 130, 246, 0.55);
+    color: rgba(255, 255, 255, 0.8);
+    font-style: normal;
+}
+.pd-note-tag {
+    display: inline-block;
+    margin-right: 6px;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #93c5fd;
+}
+
+.pd-note-editor { display: flex; gap: 5px; margin-top: 7px; }
+.pd-note-editor .pd-btn { padding: 6px 9px; }
+.pd-input {
+    flex: 1;
+    min-width: 0;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 6px 9px;
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 11px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.pd-input:focus { border-color: rgba(59, 130, 246, 0.45); }
+.pd-input::placeholder { color: rgba(255, 255, 255, 0.3); }
+
+/* Alert-type mute list inside the settings modal */
+.pd-types {
+    margin-top: 5px;
+    max-height: 190px;
+    overflow-y: auto;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 4px;
+    padding: 4px;
+}
+.pd-type-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 6px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    border-radius: 3px;
+}
+.pd-type-row:hover { background: rgba(255, 255, 255, 0.04); }
+.pd-toggle--sm { width: 28px; height: 15px; border-radius: 8px; }
+.pd-toggle--sm::after { width: 9px; height: 9px; }
+.pd-toggle--sm.pd-toggle--on::after { left: 15px; }
+
+/* Reduced motion: Svelte transitions are gated in the components, but CSS
+   keyframes need their own switch. Animations run once at ~0ms rather than
+   being removed, so keyframes carrying a final visible state still land. */
+.psd-reduced-motion *,
+.psd-reduced-motion *::before,
+.psd-reduced-motion *::after {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+    transition: none !important;
+}
+
+/* Clickable thumbnail wrapper with a hover magnifier hint */
+.pd-thumb-click { position: relative; cursor: zoom-in; }
+.pd-thumb-zoom {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 3px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 9px;
+    opacity: 0;
+    transition: opacity 0.12s;
+    pointer-events: none;
+}
+.pd-thumb-click:hover .pd-thumb-zoom { opacity: 1; }
+
+/* Enlarged map overlay */
+.pd-map-modal {
+    width: min(860px, 88vw);
+    background: rgba(26, 28, 33, 0.97);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    box-shadow: 0 24px 70px rgba(0, 0, 0, 0.65);
+    overflow: hidden;
+}
+.pd-map-stage { position: relative; padding: 10px; }
+.pd-map-controls {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.pd-map-controls .pd-ctl {
+    width: 26px;
+    height: 26px;
+    background: rgba(0, 0, 0, 0.55);
+    border-color: rgba(255, 255, 255, 0.15);
+    color: rgba(255, 255, 255, 0.8);
+}
+.pd-map-hint {
+    position: absolute;
+    left: 20px;
+    bottom: 20px;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.45);
+    background: rgba(0, 0, 0, 0.45);
+    border-radius: 3px;
+    padding: 2px 7px;
+}
+
 /* Amber triage badge for calls sitting unattended too long */
 .pd-badge--amber { background: rgba(245, 158, 11, 0.13); color: #fbbf24; }
 

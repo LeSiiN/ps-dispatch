@@ -83,11 +83,19 @@ Config.MdtMapImage = 'nui://ps-mdt/web/dist/images/map.jpeg'
 -- what's slipping through. 0 disables the badge.
 Config.UnattendedAfter = 3
 
--- Play alert sounds locally instead of round-tripping through the
--- interact-sound server event (one less network hop per alert). Requires the
--- standard interact-sound resource with its `InteractSound_CL:PlayOnOne`
--- client event; set false to restore the old server-routed path.
-Config.LocalSounds = true
+-- ── Alert sounds ─────────────────────────────────────────────────────────────
+-- GTA frontend sounds (audioName + audioRef), played directly through the
+-- game's own audio. No external sound resource is involved, which also means
+-- loudness follows the game's SFX slider — there is no per-sound volume API.
+Config.AlertSounds = {
+    -- Routine calls: the familiar dispatch chime.
+    default = { audioName = 'Lose_1st', audioRef = 'GTAO_FM_Events_Soundset' },
+    -- Priority 1 calls (and anything escalated into priority 1): an urgent
+    -- beep instead of a chime, so critical traffic is audibly different
+    -- without anyone having to look at the screen.
+    priority = { audioName = 'CHECKPOINT_MISSED', audioRef = 'HUD_MINI_GAME_SOUNDSET' },
+}
+
 Config.OnDutyOnly = true -- Set true if only on duty players can see the alert
 Config.Jobs = { -- Job Types or names that can access the dispatch menu. If you want to allow more jobs to see certain dispatch alerts. Go to alerts.lua and add the job name to the alert.
     "leo",

@@ -7,6 +7,13 @@ local blips = {}
 local radius2 = {}
 local alertsMuted = false
 local alertsDisabled = false
+
+-- Per-player settings mirrored from the dispatch settings modal. Declared up
+-- here with the other module state on purpose: the helpers below read them,
+-- and a Lua local is only visible from its declaration line onward.
+local prefBlips = true
+local prefPriorityOnly = false
+local prefMutedCodes = {}
 local waypointCooldown = false
 
 -- Functions
@@ -134,6 +141,14 @@ local function setupDispatch()
             end)(),
             unattendedAfter = Config.UnattendedAfter or 0,
             pinnedCodes = Config.PinnedCodes or {},
+            -- Every alert type this server can produce, so the settings modal
+            -- can offer per-type mutes without hardcoding a list.
+            alertTypes = (function()
+                local list = {}
+                for codeName in pairs(Config.Blips or {}) do list[#list + 1] = codeName end
+                table.sort(list)
+                return list
+            end)(),
         }
     })
 end
@@ -154,6 +169,19 @@ local function isJobValid(data)
     return false
 end
 
+-- The call the on-screen alert belongs to, and when that alert disappears.
+-- Opening the menu while an alert is up jumps straight to that call instead
+-- of dropping the officer into an unsorted list.
+local activeAlertId = nil
+local activeAlertUntil = 0
+
+local function currentAlertCallId()
+    if activeAlertId and GetGameTimer() < activeAlertUntil then
+        return activeAlertId
+    end
+    return nil
+end
+
 local function openMenu()
     if not isJobValid(PlayerData.job.type) then return end
 
@@ -162,6 +190,14 @@ local function openMenu()
         lib.notify({ description = locale('no_calls'), position = 'top', type = 'error' })
     else
         SendNUIMessage({ action = 'setDispatchs', data = calls, })
+        -- Alert still on screen? Open straight onto that call, expanded.
+        SendNUIMessage({ action = 'focusCall', data = currentAlertCallId() })
+        -- Those popups have served their purpose now that the same calls are
+        -- on screen in the menu — clear the stack instead of letting it hover
+        -- over the panel. Alerts arriving WHILE the menu is open still show:
+        -- the menu list is a snapshot, so they'd be missed otherwise.
+        SendNUIMessage({ action = 'clearAlerts' })
+        activeAlertId = nil
         toggleUI(true)
     end
 end
@@ -266,6 +302,31 @@ local function createBlip(data, blipData)
     if radius2[data.id] == radius then radius2[data.id] = nil end
 end
 
+--- Play an alert's sound through the game's own audio.
+-- Priority calls get their own, sharper pair so urgent traffic is audible as
+-- urgent. An alert may still override both by carrying a complete native pair
+-- (`sound` + `sound2`) in Config.Blips.
+---@param data table The call (only `priority` is read)
+---@param blipData table|nil The alert's Config.Blips entry
+local function playAlertSound(data, blipData)
+    local cfg = Config.AlertSounds or {}
+    local pair
+
+    if data and data.priority == 1 then
+        pair = cfg.priority
+    end
+    if not pair and type(blipData) == 'table' then
+        local name = blipData.sound or (blipData.alert and blipData.alert.sound)
+        local ref = blipData.sound2 or (blipData.alert and blipData.alert.sound2)
+        -- Only a COMPLETE pair is a usable native sound; a lone `sound` is a
+        -- leftover interact-sound filename and would play nothing.
+        if name and ref then pair = { audioName = name, audioRef = ref } end
+    end
+    pair = pair or cfg.default or { audioName = 'Lose_1st', audioRef = 'GTAO_FM_Events_Soundset' }
+
+    PlaySound(-1, pair.audioName, pair.audioRef, 0, 0, 1)
+end
+
 local function addBlip(data, blipData)
     -- Defensive: an alert whose codeName has no blip config and no inline
     -- alert table gets no blip/sound rather than a nil-index error.
@@ -277,18 +338,6 @@ local function addBlip(data, blipData)
         CreateThread(function()
             createBlip(data, blipData)
         end)
-    end
-    if not alertsMuted then
-        if blipData.sound == "Lose_1st" then
-            PlaySound(-1, blipData.sound, blipData.sound2, 0, 0, 1)
-        elseif Config.LocalSounds ~= false then
-            -- Local playback: same interact-sound file, minus one server
-            -- round-trip per alert (the old path went client -> server ->
-            -- back to this client).
-            TriggerEvent("InteractSound_CL:PlayOnOne", blipData.sound or blipData.alert.sound, 0.25)
-        else
-            TriggerServerEvent("InteractSound_SV:PlayOnSource", blipData.sound or blipData.alert.sound, 0.25)
-        end
     end
 end
 
@@ -318,15 +367,34 @@ end)
 -- The modal owns these; Lua mirrors the two that must gate work BEFORE the
 -- NUI ever sees an alert (blip creation and priority filtering). Defaults
 -- match the modal's own defaults, so an untouched install behaves as before.
-local prefBlips = true
-local prefPriorityOnly = false
 
 RegisterNUICallback('setDispatchPrefs', function(data, cb)
     if type(data) == 'table' then
         if type(data.blips) == 'boolean' then prefBlips = data.blips end
         if type(data.priorityOnly) == 'boolean' then prefPriorityOnly = data.priorityOnly end
+        -- Per-player alert-type mutes, stored as a set for O(1) lookups on
+        -- the hot notify path.
+        if type(data.mutedCodes) == 'table' then
+            prefMutedCodes = {}
+            for _, code in ipairs(data.mutedCodes) do
+                if type(code) == 'string' then prefMutedCodes[code] = true end
+            end
+        end
     end
     cb('ok')
+end)
+
+-- A call was closed by an officer: drop its blip and let the NUI remove it
+-- from the menu and the alert stack.
+RegisterNetEvent('ps-dispatch:client:callCleared', function(id)
+    if blips[id] then RemoveBlip(blips[id]) blips[id] = nil end
+    if radius2[id] then RemoveBlip(radius2[id]) radius2[id] = nil end
+    SendNUIMessage({ action = 'callCleared', data = id })
+end)
+
+-- Dispatcher note added/changed/removed on a call.
+RegisterNetEvent('ps-dispatch:client:callNote', function(payload)
+    SendNUIMessage({ action = 'callNote', data = payload })
 end)
 
 -- Live "N responding" updates for visible alert popups.
@@ -353,6 +421,9 @@ RegisterNetEvent('ps-dispatch:client:notify', function(data)
     -- "Priority alerts only": routine chatter is dropped entirely (no popup,
     -- no blip, no sound). Assignments addressed to this unit always pass.
     if prefPriorityOnly and data.priority ~= 1 and not data.assigned then return end
+    -- Personal alert-type mutes (settings modal). Assignments addressed to
+    -- this unit are never muted.
+    if data.codeName and prefMutedCodes[data.codeName] and not data.assigned then return end
 
     -- Straight-line distance to the call at the moment it comes in — the
     -- single most useful fact for deciding whether to respond, and the menu
@@ -373,18 +444,33 @@ RegisterNetEvent('ps-dispatch:client:notify', function(data)
         }
     })
 
+    local blipCfg = Config.Blips[data.codeName] or data.alert
     if prefBlips then
-        addBlip(data, Config.Blips[data.codeName] or data.alert)
+        addBlip(data, blipCfg)
+    end
+    -- Sound is deliberately NOT tied to the blip preference: it used to live
+    -- inside addBlip, so switching "Map Blips" off in the settings silently
+    -- killed alert audio as well. Muting the map must not mute the radio.
+    -- Sound is deliberately NOT tied to the blip preference: it used to live
+    -- inside addBlip, so switching "Map Blips" off silently killed alert
+    -- audio too. Muting the map must not mute the radio.
+    if not alertsMuted then
+        playAlertSound(data, blipCfg)
     end
 
+    -- Only the respond keybind is gated by the alert window. The menu key is
+    -- a separate bind (Config.OpenDispatchMenu), so disabling it here just
+    -- swallowed presses during the very seconds an officer is most likely to
+    -- want the menu.
     RespondToDispatch:disable(false)
-    OpenDispatchMenu:disable(true)
+
+    activeAlertId = data.id
+    activeAlertUntil = GetGameTimer() + timer
 
     respondWindowToken = respondWindowToken + 1
     local token = respondWindowToken
     SetTimeout(timer, function()
         if token ~= respondWindowToken then return end -- a newer alert owns the window
-        OpenDispatchMenu:disable(false)
         RespondToDispatch:disable(true)
     end)
 end)
@@ -478,6 +564,16 @@ RegisterNUICallback("clearBlips", function(data, cb)
     cb("ok")
 end)
 
+RegisterNUICallback("clearCall", function(data, cb)
+    TriggerServerEvent('ps-dispatch:server:clearCall', data.id)
+    cb('ok')
+end)
+
+RegisterNUICallback("setCallNote", function(data, cb)
+    TriggerServerEvent('ps-dispatch:server:setCallNote', data.id, data.note)
+    cb('ok')
+end)
+
 RegisterNUICallback("getStats", function(_, cb)
     local st = lib.callback.await('ps-dispatch:callback:getStats', false)
     SendNUIMessage({ action = 'stats', data = st })
@@ -498,7 +594,36 @@ end)
 -- person line, quoted note — and finally two identical alerts back-to-back
 -- to demonstrate the ×N merge. Deterministic on purpose: the scripted
 -- scenarios don't require holding a weapon or sitting in a vehicle.
+-- Sound diagnostics: prints every gate that can silence an alert and plays
+-- the configured default through whichever backend is actually active.
 if Config.TestCommand then
+    -- /dispatchsound                      -> plays routine, then priority
+    -- /dispatchsound <audioName> <audioRef> -> tries an arbitrary pair, so a
+    --                                          replacement can be auditioned
+    --                                          without editing the config.
+    RegisterCommand('dispatchsound', function(_, args)
+        if alertsMuted then
+            lib.notify({ description = 'Alerts are muted (settings > Alert Sounds)', type = 'error' })
+            return
+        end
+
+        if args and args[1] and args[2] then
+            PlaySound(-1, args[1], args[2], 0, 0, 1)
+            lib.notify({ description = ('Played %s / %s'):format(args[1], args[2]), type = 'inform' })
+            return
+        end
+
+        local cfg = Config.AlertSounds or {}
+        print(('[ps-dispatch] default=%s/%s | priority=%s/%s')
+            :format(tostring(cfg.default and cfg.default.audioName),
+                tostring(cfg.default and cfg.default.audioRef),
+                tostring(cfg.priority and cfg.priority.audioName),
+                tostring(cfg.priority and cfg.priority.audioRef)))
+        playAlertSound({ priority = 2 })
+        SetTimeout(1400, function() playAlertSound({ priority = 1 }) end)
+        lib.notify({ description = 'Routine sound, then priority sound', type = 'inform' })
+    end, false)
+
     RegisterCommand(Config.TestCommand, function()
         CreateThread(function()
             local res = GetCurrentResourceName()
@@ -554,7 +679,7 @@ if Config.TestCommand then
             lib.notify({ description = ('Dispatch test: %d alerts, 10s apart'):format(#sequence), type = 'inform' })
             for i = 1, #sequence do
                 sequence[i]()
-                if i < #sequence then Wait(10000) end
+                if i < #sequence then Wait(math.random(2000,10000)) end
             end
         end)
     end, false)

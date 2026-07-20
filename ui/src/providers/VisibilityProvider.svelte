@@ -2,7 +2,7 @@
   import { ReceiveNUI } from '../utils/ReceiveNUI';
   import { SendNUI } from '../utils/SendNUI';
   import { onMount } from 'svelte';
-  import { BROWSER_MODE, VISIBILITY } from '../store/stores';
+  import { BROWSER_MODE, VISIBILITY, OVERLAY_OPEN } from '../store/stores';
   import BackdropFix from './BackdropFix.svelte';
 
   let isVisible: boolean;
@@ -18,6 +18,9 @@
   onMount(() => {
     const keyHandler = (e: KeyboardEvent) => {
       if (isVisible && e.code === 'Escape') {
+        // A modal on top of the menu owns Escape first — closing the entire
+        // menu out from under an open dialog loses the officer's place.
+        if ($OVERLAY_OPEN) return;
         SendNUI('hideUI');
         VISIBILITY.set(false);
       }

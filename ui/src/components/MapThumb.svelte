@@ -23,7 +23,10 @@
 
   // How much of the map the crop shows: the full image spans ~12,350 world
   // units, so ZOOM 14 ≈ an 880 m wide neighborhood view in a 320px thumb.
-  const ZOOM = 8;
+  // Overridable so the enlarged map view can zoom in and out; the default
+  // stays the compact in-card crop.
+  export let zoom = 8;
+  $: ZOOM = zoom;
 
   $: fx = coords ? ((0.02072 * coords.x + 117.3) * 4) / 1024 : null;
   $: fy = coords ? ((-0.0205 * coords.y + 172.8) * 4) / 1024 : null;

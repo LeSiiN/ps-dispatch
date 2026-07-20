@@ -1,7 +1,9 @@
 <script>
   import { afterUpdate, onDestroy } from 'svelte';
-  import { DISPATCH, removeDispatch, RESPOND_KEYBIND, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, THUMBS_ENABLED, COMPACT_ALERTS } from '@store/stores';
+  import { DISPATCH, removeDispatch, RESPOND_KEYBIND, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, THUMBS_ENABLED, COMPACT_ALERTS, ALERT_DURATION, REDUCED_MOTION } from '@store/stores';
   import { fly } from 'svelte/transition';
+  import { flip } from 'svelte/animate';
+  import { DUR, EASE_OUT, edgeFor, signalIn, signalOut } from '@utils/motion';
   import { timeAgo } from '@utils/timeAgo';
   import MapThumb from './MapThumb.svelte';
 
@@ -26,9 +28,11 @@
       const existing = expiry.get(data.id);
       if (existing && existing.rev === rev) continue;
       if (existing) clearTimeout(existing.handle);
+      // Personal multiplier on Config.AlertTime (settings modal).
+      const shown = Math.max(1000, timer * ($ALERT_DURATION || 1));
       expiry.set(data.id, {
         rev,
-        handle: setTimeout(() => { expiry.delete(data.id); removeNotification(data.id); }, timer),
+        handle: setTimeout(() => { expiry.delete(data.id); removeNotification(data.id); }, shown),
       });
     }
     for (const [id, e] of expiry) {
@@ -44,7 +48,12 @@
   }[vPos] + ' ' + {
     left: 'justify-start', center: 'justify-center', right: 'justify-end',
   }[hPos];
-  $: flyParams = hPos === 'left' ? { x: -380 } : hPos === 'right' ? { x: 380 } : { y: vPos === 'bottom' ? 140 : -140 };
+  // Entrance flies in from the nearest screen edge; the exit deliberately
+  // does NOT mirror it — sliding back out reads as "undo", while a short
+  // fade-and-shrink reads as "handled".
+  // Which screen edge the stack is docked to — drives the wipe direction so
+  // alerts always open inward from the nearest edge.
+  $: alertEdge = edgeFor(vPos, hPos);
 
   $: ordered = notifications.slice().reverse(); // newest first
   $: capped = ordered.slice(0, $MAX_VISIBLE_ALERTS || 4);
@@ -75,11 +84,16 @@
 <div class="w-screen h-screen flex {wrapClasses} pointer-events-none p-[16px]">
   <div class="flex flex-col gap-[7px] {hPos === 'right' ? 'items-end' : hPos === 'left' ? 'items-start' : 'items-center'}">
     {#if hiddenCount > 0 && vPos === 'top'}
-      <p class="pd-more">+{hiddenCount} more active {hiddenCount === 1 ? 'alert' : 'alerts'}</p>
+      <p class="pd-more" transition:fly={{ y: -6, duration: DUR.fast, easing: EASE_OUT }}>+{hiddenCount} more active {hiddenCount === 1 ? 'alert' : 'alerts'}</p>
     {/if}
 
     {#each visible as dispatch (dispatch.data.id)}
-      <div class="pd-panel w-[340px] {dispatch.data.priority == 1 ? 'pd-panel--priority' : ''} relative" transition:fly={flyParams}>
+      <div
+        class="pd-panel pd-alert w-[340px] {dispatch.data.priority == 1 ? 'pd-panel--priority pd-alert--urgent' : ''} relative"
+        in:signalIn={{ edge: alertEdge, priority: dispatch.data.priority == 1, duration: $REDUCED_MOTION ? 0 : DUR.alertIn }}
+        out:signalOut={{ edge: alertEdge, duration: $REDUCED_MOTION ? 0 : DUR.alertOut }}
+        animate:flip={{ duration: $REDUCED_MOTION ? 0 : DUR.base, easing: EASE_OUT }}
+      >
 
         <!-- Header: what + when -->
         <div class="pd-head">
@@ -169,6 +183,12 @@
             <div class="pd-note">{dispatch.data.information}</div>
           {/if}
 
+          {#if dispatch.data.dispatchNote}
+            <div class="pd-note pd-note--dispatch">
+              <span class="pd-note-tag">Dispatch</span>{dispatch.data.dispatchNote}
+            </div>
+          {/if}
+
           <!-- Live responder count: fed by the server's unitCount broadcasts -->
           {#if (dispatch.data.unitCount || 0) > 0 && !dispatch.data.responded}
             <div class="pd-person"><i class="fas fa-user-group"></i><span class="text-[#4ade80]">{dispatch.data.unitCount} responding</span></div>
@@ -191,13 +211,13 @@
         </div>
 
         {#key dispatch.data.count}
-          <div class="pd-toast-timer" style="--dur:{dispatch.timer}ms"></div>
+          <div class="pd-toast-timer" style="--dur:{Math.max(1000, dispatch.timer * ($ALERT_DURATION || 1))}ms"></div>
         {/key}
       </div>
     {/each}
 
     {#if hiddenCount > 0 && vPos !== 'top'}
-      <p class="pd-more">+{hiddenCount} more active {hiddenCount === 1 ? 'alert' : 'alerts'}</p>
+      <p class="pd-more" transition:fly={{ y: 6, duration: DUR.fast, easing: EASE_OUT }}>+{hiddenCount} more active {hiddenCount === 1 ? 'alert' : 'alerts'}</p>
     {/if}
   </div>
 </div>

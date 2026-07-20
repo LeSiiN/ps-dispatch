@@ -21,7 +21,9 @@ function GetPlayerGender()
 end
 
 function GetIsHandcuffed()
-    return QBCore.Functions.GetPlayerData()?.metadata?.ishandcuffed
+    -- Standard Lua instead of CfxLua's `?.` so the file passes plain luac.
+    local pd = QBCore.Functions.GetPlayerData()
+    return pd and pd.metadata and pd.metadata.ishandcuffed
 end
 
 function IsOnDuty()
@@ -50,7 +52,13 @@ end
 function GetStreetAndZone(coords)
     local zone = GetLabelText(GetNameOfZone(coords.x, coords.y, coords.z))
     local street = GetStreetNameFromHashKey(GetStreetNameAtCoord(coords.x, coords.y, coords.z))
-    return street .. ", " .. zone
+    -- Unnamed roads (dirt tracks, most of Cayo) return an empty street —
+    -- blindly concatenating produced leading-comma strings like ", Cayo
+    -- Perico". Join only the parts that exist.
+    local parts = {}
+    if street and street ~= '' then parts[#parts + 1] = street end
+    if zone and zone ~= '' and zone ~= 'NULL' then parts[#parts + 1] = zone end
+    return table.concat(parts, ', ')
 end
 
 ---@param vehicle string
@@ -152,50 +160,50 @@ function IsCallAllowed(message)
 end
 
 local weaponTable = {
-    [584646201]   = "CLASS 2: AP-Pistol",
-    [453432689]   = "CLASS 1: Pistol",
-    [3219281620]  = "CLASS 1: Pistol MK2",
-    [1593441988]  = "CLASS 1: Combat Pistol",
-    [-1716589765] = "CLASS 1: Heavy Pistol",
-    [-1076751822] = "CLASS 1: SNS-Pistol",
-    [-771403250]  = "CLASS 2: Desert Eagle",
-    [137902532]   = "CLASS 2: Vintage Pistol",
-    [-598887786]  = "CLASS 2: Marksman Pistol",
-    [-1045183535] = "CLASS 2: Revolver",
+    [584646201]   = "AP-Pistol",
+    [453432689]   = "Pistol",
+    [3219281620]  = "Pistol MK2",
+    [1593441988]  = "Combat Pistol",
+    [-1716589765] = "Heavy Pistol",
+    [-1076751822] = "SNS-Pistol",
+    [-771403250]  = "Desert Eagle",
+    [137902532]   = "Vintage Pistol",
+    [-598887786]  = "Marksman Pistol",
+    [-1045183535] = "Revolver",
     [911657153]   = "Taser",
-    [324215364]   = "CLASS 2: Micro-SMG",
-    [-619010992]  = "CLASS 2: Machine-Pistol",
-    [736523883]   = "CLASS 2: SMG",
-    [2024373456]  = "CLASS 2: SMG MK2",
-    [-270015777]  = "CLASS 2: Assault SMG",
-    [171789620]   = "CLASS 2: Combat PDW",
-    [-1660422300] = "CLASS 4: Combat MG",
-    [3686625920]  = "CLASS 4: Combat MG MK2",
-    [1627465347]  = "CLASS 4: Gusenberg",
-    [-1121678507] = "CLASS 2: Mini SMG",
-    [-1074790547] = "CLASS 3: Assaultrifle",
-    [961495388]   = "CLASS 3: Assaultrifle MK2",
-    [-2084633992] = "CLASS 3: Carbinerifle",
-    [4208062921]  = "CLASS 3: Carbinerifle MK2",
-    [-1357824103] = "CLASS 3: Advancedrifle",
-    [-1063057011] = "CLASS 3: Specialcarbine",
-    [2132975508]  = "CLASS 3: Bulluprifle",
-    [1649403952]  = "CLASS 3: Compactrifle",
-    [100416529]   = "CLASS 4: Sniperrifle",
-    [205991906]   = "CLASS 4: Heavy Sniper",
-    [177293209]   = "CLASS 4: Heavy Sniper MK2",
-    [-952879014]  = "CLASS 4: Marksmanrifle",
-    [487013001]   = "CLASS 2: Pumpshotgun",
-    [2017895192]  = "CLASS 2: Sawnoff Shotgun",
-    [-1654528753] = "CLASS 3: Bullupshotgun",
-    [-494615257]  = "CLASS 3: Assaultshotgun",
-    [-1466123874] = "CLASS 3: Musket",
-    [984333226]   = "CLASS 3: Heavyshotgun",
-    [-275439685]  = "CLASS 2: Doublebarrel Shotgun",
-    [317205821]   = "CLASS 2: Autoshotgun",
-    [-1568386805] = "CLASS 5: GRENADE LAUNCHER",
-    [-1312131151] = "CLASS 5: RPG",
-    [125959754]   = "CLASS 5: Compactlauncher"
+    [324215364]   = "Micro-SMG",
+    [-619010992]  = "Machine-Pistol",
+    [736523883]   = "SMG",
+    [2024373456]  = "SMG MK2",
+    [-270015777]  = "Assault SMG",
+    [171789620]   = "Combat PDW",
+    [-1660422300] = "Combat MG",
+    [3686625920]  = "Combat MG MK2",
+    [1627465347]  = "Gusenberg",
+    [-1121678507] = "Mini SMG",
+    [-1074790547] = "Assaultrifle",
+    [961495388]   = "Assaultrifle MK2",
+    [-2084633992] = "Carbinerifle",
+    [4208062921]  = "Carbinerifle MK2",
+    [-1357824103] = "Advancedrifle",
+    [-1063057011] = "Specialcarbine",
+    [2132975508]  = "Bulluprifle",
+    [1649403952]  = "Compactrifle",
+    [100416529]   = "Sniperrifle",
+    [205991906]   = "Heavy Sniper",
+    [177293209]   = "Heavy Sniper MK2",
+    [-952879014]  = "Marksmanrifle",
+    [487013001]   = "Pumpshotgun",
+    [2017895192]  = "Sawnoff Shotgun",
+    [-1654528753] = "Bullupshotgun",
+    [-494615257]  = "Assaultshotgun",
+    [-1466123874] = "Musket",
+    [984333226]   = "Heavyshotgun",
+    [-275439685]  = "Doublebarrel Shotgun",
+    [317205821]   = "Autoshotgun",
+    [-1568386805] = "GRENADE LAUNCHER",
+    [-1312131151] = "RPG",
+    [125959754]   = "Compactlauncher"
 }
 
 function GetWeaponName()

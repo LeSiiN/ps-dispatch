@@ -26,16 +26,19 @@ local function isPedAWitness(witnesses, ped)
     return false
 end
 
+-- Precomputed once at load: the old version ran joaat() over the entire
+-- whitelist on EVERY CEventGunShot — and that event fires for every shot of
+-- every nearby shooter, so a firefight meant hundreds of redundant hashes
+-- per second.
+local whitelistedWeaponHashes = {}
+for i = 1, #Config.WeaponWhitelist do
+    whitelistedWeaponHashes[joaat(Config.WeaponWhitelist[i])] = true
+end
+
 ---@param ped number | Ped ID to check
 ---@return boolean | Returns true if the ped is holding a whitelisted gun
 local function BlacklistedWeapon(ped)
-	for i = 1, #Config.WeaponWhitelist do
-		local weaponHash = joaat(Config.WeaponWhitelist[i])
-		if GetSelectedPedWeapon(ped) == weaponHash then
-			return true -- Is a whitelisted weapon
-		end
-	end
-	return false -- Is not a whitelisted weapon
+    return whitelistedWeaponHashes[GetSelectedPedWeapon(ped)] == true
 end
 
 AddEventHandler('CEventGunShot', function(witnesses, ped)

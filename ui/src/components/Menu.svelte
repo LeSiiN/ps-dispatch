@@ -1,57 +1,60 @@
 <script>
-  import { PLAYER, Locale, DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, IS_RIGHT_MARGIN, processedDispatchMenu } from '@store/stores';
-  import { fly, slide } from 'svelte/transition';
-	import { timeAgo } from '@utils/timeAgo'
-	import { SendNUI } from '@utils/SendNUI'
-	import { onDestroy, onMount } from 'svelte'
-  
+  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, ALERT_POSITION, MAX_VISIBLE_ALERTS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, MAP_IMAGE, processedDispatchMenu } from '@store/stores';
+  import { fly } from 'svelte/transition';
+  import { SendNUI } from '@utils/SendNUI'
+  import CallRow from './CallRow.svelte'
+
   let activeCallId = null;
-  let additionalUnitsVisible = {};
-  let unsubscribe;
+  let statsOpen = false;
+  let settingsOpen = false;
 
-  $: menuRight = false;
+  const ALERT_POSITIONS = [
+    ['top-left', 'Top Left'], ['top-center', 'Top Center'], ['top-right', 'Top Right'],
+    ['center-left', 'Center Left'], ['center-right', 'Center Right'],
+    ['bottom-left', 'Bottom Left'], ['bottom-center', 'Bottom Center'], ['bottom-right', 'Bottom Right'],
+  ];
 
-  onMount(() => {
-    unsubscribe = IS_RIGHT_MARGIN.subscribe((value) => {
-      menuRight = value;
-    })
-  })
+  // Persist the modal's choices per player; AlwaysListener re-applies them
+  // over the config defaults on every session start.
+  function saveSettings() {
+    try {
+      localStorage.setItem('psd-settings', JSON.stringify({
+        alertPosition: $ALERT_POSITION,
+        maxVisibleAlerts: $MAX_VISIBLE_ALERTS,
+        thumbsEnabled: $THUMBS_ENABLED,
+        blipsEnabled: $BLIPS_ENABLED,
+        priorityOnly: $PRIORITY_ONLY,
+        compactAlerts: $COMPACT_ALERTS,
+      }));
+    } catch (e) { /* storage unavailable — session-only */ }
+    // Blips and the priority filter gate work in Lua BEFORE the NUI is
+    // involved, so those two have to travel to the client as well.
+    SendNUI('setDispatchPrefs', { blips: $BLIPS_ENABLED, priorityOnly: $PRIORITY_ONLY });
+  }
 
-  onDestroy(() => {
-    unsubscribe();
-  })
-  
+  // Dispatch board split: calls being worked (≥1 unit) live on the Active
+  // Calls panel to the left; the main list keeps only what still needs
+  // someone. `unitsLive` comes from unitCount pushes, so a call wanders over
+  // the moment ANYONE attaches — no list refresh needed.
+  // unitsLive (when a push has arrived) beats the possibly stale units array
+  // in BOTH directions — a remote detach to zero must move the call back.
+  $: hasUnits = (d) => d.unitsLive !== undefined ? d.unitsLive > 0 : (d.units?.length || 0) > 0;
+  $: pendingCalls = $processedDispatchMenu.filter(d => !hasUnits(d));
+  $: activeCalls = $processedDispatchMenu.filter(d => hasUnits(d));
+
+  function toggleStats() {
+    statsOpen = !statsOpen;
+    if (statsOpen) SendNUI('getStats'); // response arrives as a 'stats' push
+  }
+
+  function fmtAvg(ms) {
+    const sec = Math.round((ms || 0) / 1000);
+    if (sec < 60) return sec + 's';
+    return Math.floor(sec / 60) + 'm ' + String(sec % 60).padStart(2, '0') + 's';
+  }
+
   function toggleDispatch(id) {
-    if (activeCallId === id) {
-      activeCallId = null;
-    } else {
-      activeCallId = id;
-    }
-  }
-
-  function CheckIfAttached(units, player) {
-    for (let i = 0; i < units.length; i++) {
-      if (units[i].citizenid === player) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function toggleAdditionalUnits(callId) {
-    additionalUnitsVisible[callId] = !additionalUnitsVisible[callId];
-  }
-
-  function getAdditionalUnitsCount(dispatch) {
-    const maxVisibleUnits = 3;
-    const additionalUnits = dispatch.units.length - maxVisibleUnits;
-    return Math.max(0, additionalUnits);
-  }
-
-  function toggleMargin() {
-    menuRight = !menuRight;
-
-    IS_RIGHT_MARGIN.set(menuRight);
+    activeCallId = activeCallId === id ? null : id;
   }
 
   function toggleMute() {
@@ -63,142 +66,162 @@
     DISPATCH_DISABLED.update(value => !value);
     SendNUI("toggleAlerts", { boolean: $DISPATCH_DISABLED });
   }
-
-  function getDispatchData(dispatch) {
-    return [
-      { icon: 'fas fa-clock', label: 'Time', value: timeAgo(dispatch.time) },
-      { icon: 'fas fa-user', label: 'Name', value: dispatch.name },
-      { icon: 'fas fa-phone', label: 'Number', value: dispatch.number },
-      { icon: 'fas fa-comment', label: 'Information', value: dispatch.information },
-      { icon: 'fas fa-map-location-dot', label: 'Street', value: dispatch.street },
-      { icon: 'fas fa-user', label: 'Gender', value: dispatch.gender },
-      { icon: 'fas fa-gun', label: 'Automatic Gun Fire', value: dispatch.automaticGunFire },
-      { icon: 'fas fa-gun', label: 'Weapon', value: dispatch.weapon },
-      { icon: 'fas fa-car', label: 'Vehicle', value: dispatch.vehicle },
-      { icon: 'fas fa-rectangle-list', label: 'Plate', value: dispatch.plate },
-      { icon: 'fas fa-droplet', label: 'Color', value: dispatch.color },
-      { icon: 'fas fa-car', label: 'Class', value: dispatch.class },
-      { icon: 'fas fa-door-open', label: 'Doors', value: dispatch.doors },
-      { icon: 'fas fa-compass', label: 'Heading', value: dispatch.heading },
-      { icon: 'fas fa-user-group', label: 'Units', value: dispatch.units.length },
-    ];
-  }
 </script>
 
-<div class="w-screen h-screen flex items-center justify-end { menuRight ? 'flex-row' : 'flex-row-reverse' } " transition:fly="{{ x: menuRight ? 400 : -400 }}">
-  <!-- CONTROLS -->
-  <div class="w-[3.2vh] h-[85%] flex flex-col gap-[1vh]" class:ml-[1vh]={!menuRight} class:mr-[1vh]={menuRight}>
+<div class="w-screen h-screen flex items-center justify-end" transition:fly="{{ x: 400 }}">
 
-    <!-- REFRESH ALERTS -->
-    <button class="w-full h-[3vh] flex items-center justify-center bg-primary hover:bg-secondary"
+  <!-- Active Calls board: everything currently being worked, units inline.
+       Only appears when there is something active. -->
+  {#if activeCalls.length}
+    <div class="pd-panel w-[330px] max-w-[26vw] h-[86%] mr-[10px]">
+      <div class="pd-head">
+        <div class="pd-icon pd-icon--green"><i class="fas fa-user-group"></i></div>
+        <span class="pd-title">Active Calls</span>
+        <span class="pd-badge pd-badge--green">{activeCalls.length}</span>
+      </div>
+      <div class="pd-scroll flex-1 overflow-y-auto p-[10px] flex flex-col gap-[6px]">
+        {#each activeCalls as dispatch (dispatch.id)}
+          <CallRow {dispatch} showUnitsInline expanded={activeCallId === dispatch.id} on:toggle={() => toggleDispatch(dispatch.id)} />
+        {/each}
+      </div>
+    </div>
+  {/if}
 
-      on:click={() => {
-        SendNUI("refreshAlerts");
-      }}
-    >
-      <i class="fas fa-arrows-rotate text-[1.5vh]"></i>
-    </button>
-    <!-- TOGGLE MUTE -->
-    <button class="w-full h-[3vh] flex items-center justify-center bg-primary hover:bg-secondary"
-      on:click={toggleMute}
-    >
-      <i class="fas fa-volume-{$DISPATCH_MUTED ? "xmark" : "high"} text-[1.5vh]"></i>
-    </button>
-    <!-- TOGGLE ALERTS -->
-    <button class="w-full h-[3vh] flex items-center justify-center bg-primary hover:bg-secondary"
-      on:click={toggleAlerts}
-    >
-      <i class="fas fa-{$DISPATCH_DISABLED ? "bell-slash" : "bell"} text-[1.5vh]"></i>
-    </button>
-    <!-- CLEAR BLIPS -->
-    <button class="w-full h-[3vh] flex items-center justify-center bg-primary hover:bg-secondary"
-      on:click={() => {
-        SendNUI("clearBlips");
-      }}
-    >
-    <i class="fas fa-ban text-[1.5vh]"></i>
+  <!-- Main dispatch panel: pending calls + controls -->
+  <div class="pd-panel w-[370px] max-w-[30vw] h-[86%] mr-[14px]">
 
-    </button>
-    <!-- Toggle Margin -->
-    <button class="w-full h-[3vh] flex items-center justify-center bg-primary hover:bg-secondary"
-      on:click={toggleMargin}
-    >
-    <i class="fas fa-{menuRight ? "hand-point-left" : "hand-point-right"} text-[1.5vh]"></i>
-
-    </button>
-  </div>
-  <!-- MENU -->
-  <div class="w-[25%] h-[97%] overflow-auto pr-[0.5vh]" class:ml-[2vh]={!menuRight} class:mr-[2vh]={menuRight}>
-    {#if $DISPATCH_MENU}
-    {#each $processedDispatchMenu as dispatch}
-    <button class="w-full h-fit mb-[1vh] font-medium {dispatch.priority == 1 ? 'bg-priority_secondary' : 'bg-secondary'}" on:click={() => toggleDispatch(dispatch.id)}>
-        <div class="flex items-center gap-[1vh] p-[1vh] text-[1.5vh] {dispatch.priority == 1 ? " bg-priority_primary" : " bg-primary"}">
-            <p class="px-[2vh] py-[0.2vh] rounded-full bg-accent_green">
-              #{dispatch.id}
-            </p>
-            <p class="px-[2vh] py-[0.2vh] rounded-full {dispatch.priority == 1 ? " bg-accent_red" : "bg-accent_cyan"}">
-              {dispatch.code}
-            </p>
-            <p class="py-[0.2vh]">
-              {dispatch.message}
-            </p>
-            <i class="{dispatch.icon} py-[0.2vh] ml-auto mr-[0.5vh] {dispatch.priority == 1 ? " text-accent_red" : "text-accent_cyan"}"></i>
-          </div>
-          <div class="flex flex-col p-[1vh] gap-y-[0.4vh] text-[1.4vh] w-full text-start">
-              {#each getDispatchData(dispatch) as field}
-                {#if field.value}
-                  <p>
-                    <i class={field.icon + ' mr-[0.5vh]'}></i>
-                    {field.label}: {field.value}
-                  </p>
-                {/if}
-              {/each}
-          </div>
+    <div class="pd-head">
+      <div class="pd-icon"><i class="fas fa-tower-broadcast"></i></div>
+      <span class="pd-title">Dispatch</span>
+      {#if $DISPATCH_MENU}
+        <span class="pd-badge">{pendingCalls.length} pending</span>
+      {/if}
+      <div class="flex items-center gap-[4px] ml-auto">
+        <button class="pd-ctl" class:pd-ctl--active={settingsOpen} title="Settings" on:click={() => settingsOpen = true}>
+          <i class="fas fa-gear"></i>
         </button>
-        <!-- UNITS, ATTACH AND DETACH -->
-        {#if activeCallId === dispatch.id}
-        <div class=" mb-[1vh]" transition:slide={{ duration: 300 }}>
-          {#if dispatch.units.length > 0}
-            <div class="flex flex-col gap-[0.2vh] mb-[1vh] bg-primary">
-              {#each dispatch.units.slice(0, additionalUnitsVisible[dispatch.id] ? dispatch.units.length : 3) as unit}
-                <div class="w-full h-[5vh] flex {dispatch.priority == 1 ? 'bg-priority_tertiary' : 'bg-tertiary'} flex items-center font-medium">
-                  <p class="ml-[2vh] px-[1.4vh] py-[0.2vh] rounded-full {dispatch.priority == 1 ? 'bg-priority_secondary' : 'bg-secondary'}">{unit.metadata.callsign}</p>
-                  <p class="mx-[1vh] px-[1.5vh] py-[0.2vh] rounded-full uppercase {unit.job.type == "leo" ? "bg-[#004ca5] " : unit.job.type == "ems" ? "bg-[#e03535]" : "bg-[#4b4b4b]" }">{unit.job.name}</p>
-                  <p class="ml-[0.5vh]">{unit.charinfo.firstname} {unit.charinfo.lastname}</p>
-                </div>
-              {/each}
-              {#if dispatch.units.length > 3}
-                {#if !additionalUnitsVisible[dispatch.id]}
-                  <button class="w-full h-[5vh] flex items-center justify-center {dispatch.priority == 1 ? 'bg-priority_tertiary' : 'bg-tertiary'} flex items-center font-medium" on:click={() => toggleAdditionalUnits(dispatch.id)}>
-                    <p class="ml-[0.5vh]">+{getAdditionalUnitsCount(dispatch)} {$Locale.additionals}</p>
-                  </button>
-                {/if}
-              {/if}
-            </div>
-          {/if}
-          <button class="w-full h-[5vh] {dispatch.priority == 1 ? " bg-priority_quaternary" : " bg-accent_green"} flex items-center font-medium"
-            on:click={() => {
-              if (CheckIfAttached(dispatch.units, $PLAYER.citizenid)) {
-                SendNUI("detachUnit", dispatch );
-                SendNUI("refreshAlerts");
-              } else {
-                SendNUI("attachUnit", dispatch );
-                SendNUI("refreshAlerts");
-              }
-            }}>
-            <p class="mx-[2vh] px-[2vh] py-[0.2vh] rounded-full {dispatch.priority == 1 ? " bg-accent_dark_red" : "  bg-accent_dark_green"} ">{dispatch.units.length} {$Locale.units}</p>
-            <p class="ml-[3vh]">
-              {#if CheckIfAttached(dispatch.units, $PLAYER.citizenid)}
-                {$Locale.dispatch_detach}
-              {:else}
-                {$Locale.dispatch_attach}
-              {/if}
-            </p>
+        <button class="pd-ctl" class:pd-ctl--active={statsOpen} title="Session stats" on:click={toggleStats}>
+          <i class="fas fa-chart-simple"></i>
+        </button>
+        <button class="pd-ctl" title="Refresh" on:click={() => SendNUI("refreshAlerts")}>
+          <i class="fas fa-arrows-rotate"></i>
+        </button>
+        <button class="pd-ctl" title="Clear blips" on:click={() => SendNUI("clearBlips")}>
+          <i class="fas fa-ban"></i>
+        </button>
+      </div>
+    </div>
+
+    {#if statsOpen && $STATS}
+      <div class="pd-stats">
+        <span><b>{$STATS.calls}</b> calls</span>
+        {#if $STATS.mergedReports}<span><b>{$STATS.mergedReports}</b> merged</span>{/if}
+        <span><b>{$STATS.calls ? Math.round(($STATS.answered / $STATS.calls) * 100) : 0}%</b> answered</span>
+        <span>avg response <b class="pd-mono">{fmtAvg($STATS.avgResponseMs)}</b></span>
+        {#if $STATS.topCode}<span>top: <b>{$STATS.topCode}</b> ×{$STATS.topCount}</span>{/if}
+      </div>
+    {/if}
+
+    <div class="pd-scroll flex-1 overflow-y-auto p-[10px] flex flex-col gap-[6px]">
+      {#if $DISPATCH_MENU}
+        {#each pendingCalls as dispatch (dispatch.id)}
+          <CallRow {dispatch} expanded={activeCallId === dispatch.id} on:toggle={() => toggleDispatch(dispatch.id)} />
+        {/each}
+        {#if !pendingCalls.length}
+          <p class="pd-more" style="text-align:center; padding-top: 14px;">
+            {activeCalls.length ? 'All calls are being handled' : 'No active calls'}
+          </p>
+        {/if}
+      {/if}
+    </div>
+  </div>
+
+  {#if settingsOpen}
+    <!-- Settings modal — ImpoundForm anatomy: overlay, centered panel,
+         13/20 header with hairline, label-over-control form groups. -->
+    <div class="pd-modal-overlay" on:click|self={() => settingsOpen = false}>
+      <div class="pd-modal">
+        <div class="pd-modal-head">
+          <div class="pd-icon"><i class="fas fa-gear"></i></div>
+          <span class="pd-modal-title">Dispatch Settings</span>
+          <button class="pd-ctl" title="Close" on:click={() => settingsOpen = false}>
+            <i class="fas fa-xmark"></i>
           </button>
         </div>
-        {/if}
-      {/each}
-    {/if}
-  </div>
-</div>
+        <div class="pd-modal-body pd-scroll">
 
+          <div class="pd-form-group">
+            <span class="pd-form-label">Alert Position</span>
+            <select class="pd-select" value={$ALERT_POSITION} on:change={(e) => { ALERT_POSITION.set(e.target.value); saveSettings(); }}>
+              {#each ALERT_POSITIONS as [value, label]}
+                <option {value}>{label}</option>
+              {/each}
+            </select>
+            <span class="pd-form-hint">Where incoming alert cards appear on screen</span>
+          </div>
+
+          <div class="pd-form-group">
+            <span class="pd-form-label">Max Visible Alerts</span>
+            <select class="pd-select" value={$MAX_VISIBLE_ALERTS} on:change={(e) => { MAX_VISIBLE_ALERTS.set(Number(e.target.value)); saveSettings(); }}>
+              {#each [2, 3, 4, 5, 6] as n}
+                <option value={n}>{n}</option>
+              {/each}
+            </select>
+            <span class="pd-form-hint">Older alerts collapse into "+N more"</span>
+          </div>
+
+          {#if $MAP_IMAGE}
+            <div class="pd-toggle-row">
+              <div class="pd-form-group">
+                <span class="pd-form-label">Map Thumbnails</span>
+                <span class="pd-form-hint">Scene preview on alerts and expanded calls</span>
+              </div>
+              <div class="pd-toggle" class:pd-toggle--on={$THUMBS_ENABLED} on:click={() => { THUMBS_ENABLED.update(v => !v); saveSettings(); }}></div>
+            </div>
+          {/if}
+
+          <div class="pd-toggle-row">
+            <div class="pd-form-group">
+              <span class="pd-form-label">Compact Alerts</span>
+              <span class="pd-form-hint">Header, location and note only — no vehicle or suspect details</span>
+            </div>
+            <div class="pd-toggle" class:pd-toggle--on={$COMPACT_ALERTS} on:click={() => { COMPACT_ALERTS.update(v => !v); saveSettings(); }}></div>
+          </div>
+
+          <div class="pd-toggle-row">
+            <div class="pd-form-group">
+              <span class="pd-form-label">Map Blips</span>
+              <span class="pd-form-hint">Place a blip and search radius on the game map</span>
+            </div>
+            <div class="pd-toggle" class:pd-toggle--on={$BLIPS_ENABLED} on:click={() => { BLIPS_ENABLED.update(v => !v); saveSettings(); }}></div>
+          </div>
+
+          <div class="pd-toggle-row">
+            <div class="pd-form-group">
+              <span class="pd-form-label">Priority Alerts Only</span>
+              <span class="pd-form-hint">Mute routine calls entirely — assignments always come through</span>
+            </div>
+            <div class="pd-toggle" class:pd-toggle--on={$PRIORITY_ONLY} on:click={() => { PRIORITY_ONLY.update(v => !v); saveSettings(); }}></div>
+          </div>
+
+          <div class="pd-toggle-row">
+            <div class="pd-form-group">
+              <span class="pd-form-label">Alert Sounds</span>
+              <span class="pd-form-hint">Audio cue when a new alert arrives</span>
+            </div>
+            <div class="pd-toggle" class:pd-toggle--on={!$DISPATCH_MUTED} on:click={toggleMute}></div>
+          </div>
+
+          <div class="pd-toggle-row">
+            <div class="pd-form-group">
+              <span class="pd-form-label">Receive Alerts</span>
+              <span class="pd-form-hint">Master switch — popups, sounds and blips</span>
+            </div>
+            <div class="pd-toggle" class:pd-toggle--on={!$DISPATCH_DISABLED} on:click={toggleAlerts}></div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  {/if}
+</div>

@@ -382,12 +382,6 @@ AddEventHandler('QBCore:Client:OnPlayerUnload', removeZones)
 AddEventHandler('onResourceStart', function(resourceName)
     if resourceName ~= GetCurrentResourceName() then return end
     setupDispatch()
-    -- Restart parity: zones were only ever created on OnPlayerLoaded, so a
-    -- resource restart silently killed hunting/no-dispatch detection until
-    -- the next relog. (This is also why resmon showed ~0.03ms after joining
-    -- but 0.00 after a restart — the cost IS the ox_lib zone frame loop, and
-    -- after a restart it simply wasn't running anymore. With empty zone
-    -- lists in the config there are no zones and no frame loop at all.)
     if LocalPlayer.state.isLoggedIn then
         createZones()
     end

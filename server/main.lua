@@ -6,6 +6,25 @@ local callCount = 0
 local QBCore = nil
 pcall(function() QBCore = exports['qb-core']:GetCoreObject() end)
 
+---@param data table
+-- Resolve blip metadata ONCE server-side from the shared config: the display
+-- position (randomly offset when the alert type wants imprecision) and the
+-- search radius. Every officer's blip, the map thumbnail and the menu then
+-- agree on the same spot — and the exact location never leaves the server's
+-- visuals for offset alerts.
+local function resolveBlipMeta(data)
+    local blip = Config.Blips and Config.Blips[data.codeName] or nil
+    local radius = blip and tonumber(blip.radius) or 0
+    if radius and radius > 0 then data.mapRadius = radius end
+    if blip and blip.offset then
+        local off = math.floor(tonumber(Config.MaxOffset) or 100)
+        data.displayCoords = {
+            x = data.coords.x + math.random(-off, off),
+            y = data.coords.y + math.random(-off, off),
+        }
+    end
+end
+
 ---@param data table Freshly reported alert
 ---@return table|nil The existing call this alert merged into, or nil
 -- Repeated identical alerts (same alert type, close together in time AND
@@ -47,25 +66,6 @@ local function tryMergeCall(data)
         end
     end
     return nil
-end
-
----@param data table
--- Resolve blip metadata ONCE server-side from the shared config: the display
--- position (randomly offset when the alert type wants imprecision) and the
--- search radius. Every officer's blip, the map thumbnail and the menu then
--- agree on the same spot — and the exact location never leaves the server's
--- visuals for offset alerts.
-local function resolveBlipMeta(data)
-    local blip = Config.Blips and Config.Blips[data.codeName] or nil
-    local radius = blip and tonumber(blip.radius) or 0
-    if radius and radius > 0 then data.mapRadius = radius end
-    if blip and blip.offset then
-        local off = math.floor(tonumber(Config.MaxOffset) or 100)
-        data.displayCoords = {
-            x = data.coords.x + math.random(-off, off),
-            y = data.coords.y + math.random(-off, off),
-        }
-    end
 end
 
 ---@param data table The call to deliver

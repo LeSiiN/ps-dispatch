@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { ReceiveNUI } from '@utils/ReceiveNUI'
 	import { debugData } from '@utils/debugData'
-	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, shortCalls } from '@store/stores';
+	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, shortCalls } from '@store/stores';
 
 	debugData([
 		{
@@ -55,6 +55,14 @@
 			if (d) d.data.unitCount = payload.count;
 			return [...dispatches];
 		});
+		// Also patch the menu list so the pending/active board re-partitions
+		// live when SOMEONE ELSE attaches (unit details follow on refresh).
+		DISPATCH_MENU.update(list => {
+			if (!list) return list;
+			const d = list.find(x => x.id === payload.id);
+			if (d) d.unitsLive = payload.count;
+			return [...list];
+		});
 	});
 
 	ReceiveNUI('callResponded', (id: any) => {
@@ -75,6 +83,10 @@
 		});
 	});
 
+	ReceiveNUI('stats', (data: any) => {
+		STATS.set(data)
+	});
+
 	ReceiveNUI('setDispatchs', (data: any) => {
 		DISPATCH_MENU.set(data)
 	});
@@ -87,6 +99,7 @@
 		if (data.maxVisibleAlerts) MAX_VISIBLE_ALERTS.set(data.maxVisibleAlerts)
 		if (data.alertPosition) ALERT_POSITION.set(data.alertPosition)
 		if (data.unattendedAfter) UNATTENDED_AFTER.set(data.unattendedAfter)
+		if (Array.isArray(data.pinnedCodes)) PINNED_CODES.set(data.pinnedCodes)
 		// Thumbnails only activate once the MDT's map image demonstrably
 		// loads — wrong resource name / missing MDT just means no thumbs,
 		// never a broken grey box on every alert.

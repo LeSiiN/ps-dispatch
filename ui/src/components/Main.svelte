@@ -90,6 +90,12 @@
           {#if (dispatch.data.count || 1) > 1}
             <span class="pd-badge pd-badge--red">×{dispatch.data.count}</span>
           {/if}
+          {#if dispatch.data.escalated}
+            <span class="pd-badge pd-badge--red" title="Auto-escalated after repeated reports"><i class="fas fa-arrow-up mr-[3px]"></i>ESC</span>
+          {/if}
+          {#if dispatch.data.hotspot}
+            <span class="pd-badge pd-badge--purple" title="Repeated incidents on this street"><i class="fas fa-fire mr-[3px]"></i>×{dispatch.data.hotspot}</span>
+          {/if}
           <span class="pd-title truncate">{dispatch.data.message}</span>
           <span class="pd-time">{timeAgo(dispatch.data.time)}</span>
         </div>

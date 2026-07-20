@@ -10,6 +10,8 @@ export const MAX_VISIBLE_ALERTS = writable<number>(4);
 export const ALERT_POSITION = writable<string>("top-right");
 export const MAP_IMAGE = writable<string | null>(null); // null = disabled/unavailable
 export const UNATTENDED_AFTER = writable<number>(0);    // minutes, 0 = off
+export const PINNED_CODES = writable<string[]>([]);
+export const STATS = writable<any>(null);
 export const RESPOND_KEYBIND = writable<string>("");
 
 export const DISPATCH_MUTED = writable<boolean>(false);
@@ -67,18 +69,29 @@ interface LOCALE_DATA {
 export const Locale = writable<LOCALE_DATA>(null);
 
 export const processedDispatchMenu = derived(
-  [DISPATCH_MENU, MAX_CALL_LIST, PLAYER],
-  ([$DISPATCH_MENU, $MAX_CALL_LIST, $PLAYER]) => {
+  [DISPATCH_MENU, MAX_CALL_LIST, PLAYER, PINNED_CODES],
+  ([$DISPATCH_MENU, $MAX_CALL_LIST, $PLAYER, $PINNED_CODES]) => {
     if (!$DISPATCH_MENU || $MAX_CALL_LIST === null || !$PLAYER) {
       // Handling null or undefined values
       return [];
     }
 
-    return $DISPATCH_MENU
+    const list = $DISPATCH_MENU
       .slice(-$MAX_CALL_LIST)
       .filter(dispatch =>
         dispatch.message && dispatch.jobs.includes($PLAYER.job.type)
       )
       .reverse();
+
+    // Critical calls (officer down etc.) never scroll out of sight: stable
+    // partition keeps time order within each group.
+    if ($PINNED_CODES.length) {
+      const pinned = list.filter(d => $PINNED_CODES.includes(d.codeName));
+      if (pinned.length) {
+        const rest = list.filter(d => !$PINNED_CODES.includes(d.codeName));
+        return [...pinned, ...rest];
+      }
+    }
+    return list;
   }
 );

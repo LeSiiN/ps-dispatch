@@ -18,7 +18,24 @@ Config.CallMerge = {
     Enabled = true,
     Window = 45,    -- seconds
     Radius = 50.0,  -- metres
+    -- A call merged this many times auto-escalates to priority 1 (red card,
+    -- live on every screen it's still showing on): five shots-fired reports
+    -- from one spot are no longer a routine call. 0 disables escalation.
+    EscalateAt = 4,
 }
+
+-- Hotspot detection: if this many SEPARATE calls (merges don't count — those
+-- are one incident) land on the same street within Window minutes, alerts
+-- from that street carry a "Hotspot ×N" badge. Enabled = false turns it off.
+Config.Hotspot = {
+    Enabled = true,
+    Window = 30,   -- minutes
+    Threshold = 3, -- calls on the same street
+}
+
+-- These alert codeNames are pinned to the top of the dispatch menu,
+-- regardless of age — an officer down never scrolls out of sight.
+Config.PinnedCodes = { 'officerdown', 'officerdistress', 'emsdown' }
 
 -- Send alerts only to players whose job matches the call (server-side filter)
 -- instead of broadcasting to every client. Set false to restore the old

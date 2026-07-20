@@ -33,6 +33,14 @@ local function tryMergeCall(data)
                 call.time = now
                 call.coords = data.coords -- follow the most recent sighting
                 if data.information then call.information = data.information end
+                -- Escalation: a call this many reports deep is no longer
+                -- routine. The rebroadcast carries the new priority, so a
+                -- popup still on screen flips red in place.
+                local escalateAt = merge.EscalateAt or 0
+                if escalateAt > 0 and call.count >= escalateAt and call.priority ~= 1 then
+                    call.priority = 1
+                    call.escalated = true
+                end
                 return call
             end
         end
@@ -118,6 +126,54 @@ local function broadcastUnitCount(call)
     end
 end
 
+-- ── Hotspot tracking ─────────────────────────────────────────────────────────
+-- Rolling timestamps of SEPARATE calls per street (merges don't count; those
+-- are one incident). Pruned on every touch, so the table only ever holds
+-- entries inside the window.
+local streetHits = {}
+local function registerHotspot(street)
+    local hs = Config.Hotspot
+    if not hs or hs.Enabled == false then return nil end
+    if type(street) ~= 'string' or street == '' then return nil end
+    local now = os.time()
+    local cutoff = now - (hs.Window or 30) * 60
+    local hits = streetHits[street]
+    if not hits then hits = {} streetHits[street] = hits end
+    local kept = {}
+    for i = 1, #hits do
+        if hits[i] > cutoff then kept[#kept + 1] = hits[i] end
+    end
+    kept[#kept + 1] = now
+    streetHits[street] = kept
+    if #kept >= (hs.Threshold or 3) then return #kept end
+    return nil
+end
+
+-- ── Session statistics ───────────────────────────────────────────────────────
+-- Aggregated since resource start; surfaced in the dispatch menu.
+local stats = {
+    calls = 0,          -- unique calls (merges are one call)
+    mergedReports = 0,  -- extra reports folded into existing calls
+    answered = 0,       -- calls that received at least one unit
+    responseSum = 0,    -- ms from call creation to FIRST attach
+    byCode = {},        -- codeName -> count
+}
+
+lib.callback.register('ps-dispatch:callback:getStats', function()
+    local topCode, topCount = nil, 0
+    for code, n in pairs(stats.byCode) do
+        if n > topCount then topCode, topCount = code, n end
+    end
+    return {
+        calls = stats.calls,
+        mergedReports = stats.mergedReports,
+        answered = stats.answered,
+        avgResponseMs = stats.answered > 0 and math.floor(stats.responseSum / stats.answered) or 0,
+        topCode = topCode,
+        topCount = topCount,
+    }
+end)
+
 -- Functions
 exports('GetDispatchCalls', function()
     return calls
@@ -135,8 +191,15 @@ RegisterServerEvent('ps-dispatch:server:notify', function(data)
     local mergedCall = tryMergeCall(data)
     if mergedCall then
         mergedCall.merged = true
+        stats.mergedReports = stats.mergedReports + 1
         broadcastCall(mergedCall)
         return
+    end
+
+    data.hotspot = registerHotspot(data.street)
+    stats.calls = stats.calls + 1
+    if data.codeName then
+        stats.byCode[data.codeName] = (stats.byCode[data.codeName] or 0) + 1
     end
 
     callCount = callCount + 1
@@ -167,7 +230,13 @@ RegisterServerEvent('ps-dispatch:server:attach', function(id, player)
                     return
                 end
             end
+            local firstUnit = #calls[i]['units'] == 0
             calls[i]['units'][#calls[i]['units'] + 1] = player
+            if firstUnit and not calls[i].answeredTracked then
+                calls[i].answeredTracked = true
+                stats.answered = stats.answered + 1
+                stats.responseSum = stats.responseSum + math.max(0, os.time() * 1000 - calls[i].time)
+            end
             broadcastUnitCount(calls[i])
             return
         end

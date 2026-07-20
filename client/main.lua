@@ -121,6 +121,7 @@ local function setupDispatch()
             alertPosition = Config.AlertPosition or 'top-right',
             mapImage = Config.MdtMapImage or false,
             unattendedAfter = Config.UnattendedAfter or 0,
+            pinnedCodes = Config.PinnedCodes or {},
             shortCalls = Config.ShortCalls,
         }
     })
@@ -423,6 +424,12 @@ RegisterNUICallback("clearBlips", function(data, cb)
         RemoveBlip(v)
     end
     blips, radius2 = {}, {}
+    cb("ok")
+end)
+
+RegisterNUICallback("getStats", function(_, cb)
+    local st = lib.callback.await('ps-dispatch:callback:getStats', false)
+    SendNUIMessage({ action = 'stats', data = st })
     cb("ok")
 end)
 

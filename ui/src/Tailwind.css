@@ -345,6 +345,13 @@ html, body {
     border: 1px solid rgba(59, 130, 246, 0.3);
     color: #93c5fd;
 }
+/* Same strip, but for a result that carries bad news. */
+.pd-assigned--alert {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #f87171;
+}
+
 .pd-assigned-sub {
     margin-left: auto;
     font-weight: 500;

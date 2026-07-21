@@ -14,6 +14,21 @@ local alertsDisabled = false
 local prefBlips = true
 local prefPriorityOnly = false
 local prefMutedCodes = {}
+
+--- Usable map position for an alert, or nil when it has none.
+-- Targeted alerts are allowed to carry no coords at all (a plate check or a
+-- record lookup answers a question, it does not point at a place), so every
+-- map-related step has to tolerate their absence rather than assume a point.
+---@param data table
+---@return table|nil
+local function alertPosition(data)
+    local at = data.displayCoords or data.coords
+    if type(at) ~= 'table' and type(at) ~= 'vector3' then return nil end
+    local x, y = tonumber(at.x), tonumber(at.y)
+    if not x or not y then return nil end
+    return { x = x, y = y, z = tonumber(at.z) or tonumber(data.coords and data.coords.z) or 0.0 }
+end
+
 local waypointCooldown = false
 
 -- Functions
@@ -220,8 +235,11 @@ local function setWaypoint()
 
     local timer = data.alertTime * 1000
 
+    local at = alertPosition(data)
+    if not at then return end -- an alert without a position cannot be routed to
+
     if not waypointCooldown and lib.table.contains(data.jobs, PlayerData.job.type) then
-        SetNewWaypoint(data.coords.x, data.coords.y)
+        SetNewWaypoint(at.x, at.y)
         TriggerServerEvent('ps-dispatch:server:attach', data.id, PlayerData)
         -- Local bridge event so companion resources (e.g. ps-mdt's automatic
         -- officer status) can react to a self-attach made through dispatch
@@ -274,8 +292,9 @@ local function createBlip(data, blipData)
     -- client rolled its own random offset, so no two officers saw the same
     -- spot — and the thumbnail pointed at the exact location, defeating the
     -- offset entirely.
-    local at = data.displayCoords or data.coords
-    blip, radius = createBlipData({ x = at.x, y = at.y, z = data.coords.z or 0 }, blipData.radius, sprite, color, scale, flash)
+    local at = alertPosition(data)
+    if not at then return end
+    blip, radius = createBlipData(at, blipData.radius, sprite, color, scale, flash)
     blips[data.id] = blip
     radius2[data.id] = radius
 
@@ -331,6 +350,8 @@ local function addBlip(data, blipData)
     -- Defensive: an alert whose codeName has no blip config and no inline
     -- alert table gets no blip/sound rather than a nil-index error.
     if type(blipData) ~= 'table' then return end
+    -- No position means no marker — nothing to pin to the map.
+    if not alertPosition(data) then return end
     -- A merged repeat of an existing call keeps its original blip: the fade
     -- thread for data.id is still running, spawning a second one would leak
     -- the first handle and double up map markers.
@@ -524,7 +545,8 @@ end)
 
 RegisterNUICallback("attachUnit", function(data, cb)
     TriggerServerEvent('ps-dispatch:server:attach', data.id, PlayerData)
-    SetNewWaypoint(data.coords.x, data.coords.y)
+    local at = alertPosition(data)
+    if at then SetNewWaypoint(at.x, at.y) end
     TriggerEvent('ps-dispatch:client:selfAttach', data.id)
     SendNUIMessage({ action = 'callResponded', data = data.id })
     cb("ok")

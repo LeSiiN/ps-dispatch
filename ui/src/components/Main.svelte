@@ -194,7 +194,18 @@
             <div class="pd-person"><i class="fas fa-user-group"></i><span class="text-[#4ade80]">{dispatch.data.unitCount} responding</span></div>
           {/if}
 
-          {#if dispatch.data.assigned}
+          {#if dispatch.data.footer}
+            <!-- Alerts that are an ANSWER rather than a job (plate checks,
+                 record lookups) supply their own footer: no respond prompt,
+                 because there is nothing to respond to. -->
+            <div class="pd-assigned {dispatch.data.footer.tone === 'alert' ? 'pd-assigned--alert' : ''}">
+              <i class={dispatch.data.footer.icon || 'fas fa-database'}></i>
+              <span>{dispatch.data.footer.text}</span>
+              {#if dispatch.data.footer.sub}
+                <span class="pd-assigned-sub">{dispatch.data.footer.sub}</span>
+              {/if}
+            </div>
+          {:else if dispatch.data.assigned}
             <!-- Dispatcher assignment: the waypoint is already set and the
                  unit is already attached, so a respond prompt would be a lie.
                  Confirmation instead. -->

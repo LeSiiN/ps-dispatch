@@ -125,6 +125,28 @@ Add codeName in `config.lua` for the particular robbery to display the blip
 ```
 Information about each parameter is in the `alerts.lua` file.
 
+## Plate check log
+
+The dispatch menu has two tabs: **Calls** (the shared board) and **Plates** (this officer's own plate-check log).
+
+Nothing needs wiring up. Plate checks already arrive as targeted alerts — ps-mdt's `PlateCheckAlert` sends them through `SendTargetedAlert` with `codeName = 'platecheck'` — and the log simply keeps the ones that scroll past. Hits never leave the client that ran them, which is both the privacy guarantee and why no database is involved.
+
+A muted `platecheck` type still lands in the log: muting is about screen noise, not about forgetting what you looked up.
+
+Each entry can be dismissed or escalated with **Request backup** — which sends ps-dispatch's ordinary `OfficerBackup` alert, so it reaches the board looking like every other backup call. Two-step confirm and a cooldown, since it puts a priority call on everyone's board.
+
+```lua
+Config.PlateScanner = {
+    Enabled = true,           -- false removes the tab and the tab bar with it
+    MaxHits = 40,
+    CodeNames = { 'platecheck' },   -- empty = any alert with a plate AND a footer
+    BackupButton = true,
+    BackupCooldownMs = 60000,
+}
+```
+
+Repeat checks on the same plate within a few seconds refresh the existing entry rather than stacking duplicates.
+
 # FAQ
 * There are no calls showing on dispatch or mdt list.
   - Make sure you have a job type specified in your qbcore/shared/jobs.lua like:
@@ -184,4 +206,4 @@ We host some of the biggest FiveM servers in the industry such as Prodigy RP, Sm
 
 ### Links
 - [Website](https://billing.1of1servers.com/aff.php?aff=1)
-- [Discord](https://discord.gg/1of1servers)  
+- [Discord](https://discord.gg/1of1servers)

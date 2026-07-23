@@ -2,7 +2,7 @@
 	import { ReceiveNUI } from '@utils/ReceiveNUI'
 	import { debugData } from '@utils/debugData'
 	import { SendNUI } from '@utils/SendNUI'
-	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, FOCUS_CALL, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, REDUCED_MOTION } from '@store/stores';
+	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, FOCUS_CALL, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, REDUCED_MOTION, PLATE_HITS, MENU_TAB, PLATES_ENABLED } from '@store/stores';
 
 	debugData([
 		{
@@ -84,6 +84,10 @@
 		});
 	});
 
+	ReceiveNUI('plateHits', (data: any) => {
+		PLATE_HITS.set(Array.isArray(data) ? data : []);
+	});
+
 	ReceiveNUI('stats', (data: any) => {
 		STATS.set(data)
 	});
@@ -116,6 +120,13 @@
 
 	ReceiveNUI('setDispatchs', (data: any) => {
 		DISPATCH_MENU.set(data)
+		// Opening onto an empty call list while the scanner log has entries would
+		// hide the only thing there is to look at.
+		if (!data?.length) {
+			let hits: any[] = [];
+			PLATE_HITS.subscribe(v => hits = v)();
+			if (hits.length) MENU_TAB.set('plates');
+		}
 	});
 
 	ReceiveNUI('setupUI', (data: any) => {
@@ -126,6 +137,10 @@
 		if (data.maxVisibleAlerts) MAX_VISIBLE_ALERTS.set(data.maxVisibleAlerts)
 		if (data.alertPosition) ALERT_POSITION.set(data.alertPosition)
 		if (data.unattendedAfter) UNATTENDED_AFTER.set(data.unattendedAfter)
+		PLATES_ENABLED.set(data.platesEnabled !== false)
+		// A stale 'plates' tab from a previous session would leave the menu on a
+		// panel that no longer exists.
+		if (data.platesEnabled === false) MENU_TAB.set('calls')
 		if (Array.isArray(data.pinnedCodes)) PINNED_CODES.set(data.pinnedCodes)
 		if (Array.isArray(data.alertTypes)) ALERT_TYPES.set(data.alertTypes)
 		// Per-player settings (dispatch settings modal) override the config

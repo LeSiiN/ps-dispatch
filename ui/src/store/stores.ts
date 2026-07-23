@@ -27,6 +27,15 @@ export const REDUCED_MOTION = writable<boolean>(false);
 export const STATS = writable<any>(null);
 export const RESPOND_KEYBIND = writable<string>("");
 
+// Plate scanner hits, private to this player — the client Lua holds the list and
+// pushes the whole thing on every change, so there's no merging to do here.
+export const PLATE_HITS = writable<any[]>([]);
+// Which panel of the main menu is showing.
+export const MENU_TAB = writable<string>("calls");
+// Config.PlateScanner.Enabled. False hides the tab bar completely — with only
+// one panel left there is nothing to switch between.
+export const PLATES_ENABLED = writable<boolean>(true);
+
 export const DISPATCH_MUTED = writable<boolean>(false);
 export const DISPATCH_DISABLED = writable<boolean>(false);
 

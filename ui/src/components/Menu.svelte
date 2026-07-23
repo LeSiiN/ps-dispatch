@@ -1,14 +1,26 @@
 <script>
-  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, ALERT_POSITION, MAX_VISIBLE_ALERTS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, MAP_IMAGE, FOCUS_CALL, OVERLAY_OPEN, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, REDUCED_MOTION, processedDispatchMenu } from '@store/stores';
+  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, ALERT_POSITION, MAX_VISIBLE_ALERTS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, MAP_IMAGE, FOCUS_CALL, OVERLAY_OPEN, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, REDUCED_MOTION, processedDispatchMenu, PLATE_HITS, MENU_TAB, PLATES_ENABLED } from '@store/stores';
   import { fly, fade, scale, slide } from 'svelte/transition';
   import { flip } from 'svelte/animate';
   import { DUR, EASE_IN, EASE_OUT } from '@utils/motion';
   import { SendNUI } from '@utils/SendNUI'
   import CallRow from './CallRow.svelte'
+  import PlateRow from './PlateRow.svelte'
   import MapThumb from './MapThumb.svelte'
   import { tick } from 'svelte'
 
   let activeCallId = null;
+  let activePlateId = null;
+
+  // An alert arriving for a call must not leave the operator staring at the
+  // plate log wondering where it went.
+  $: if ($FOCUS_CALL != null) MENU_TAB.set('calls');
+
+  function togglePlate(id) {
+    activePlateId = activePlateId === id ? null : id;
+  }
+
+  $: alertHits = $PLATE_HITS.filter(h => h.tone === 'alert').length;
   let statsOpen = false;
   let settingsOpen = false;
 
@@ -171,7 +183,7 @@
     <div class="pd-head">
       <div class="pd-icon"><i class="fas fa-tower-broadcast"></i></div>
       <span class="pd-title">Dispatch</span>
-      {#if $DISPATCH_MENU}
+      {#if $DISPATCH_MENU && ($MENU_TAB === 'calls' || !$PLATES_ENABLED)}
         <span class="pd-badge">{pendingCalls.length} pending</span>
       {/if}
       <div class="flex items-center gap-[4px] ml-auto">
@@ -190,6 +202,34 @@
       </div>
     </div>
 
+    <!-- Calls are the shared board; plate hits are this officer's own scanner
+         log. Two different things, so they get two tabs rather than being
+         mixed into one list. With the scanner disabled there is only one panel
+         left, so the whole bar goes rather than leaving a lone tab. -->
+    {#if $PLATES_ENABLED}
+    <div class="pd-tabs">
+      <button class="pd-tab" class:pd-tab--active={$MENU_TAB === 'calls'} on:click={() => MENU_TAB.set('calls')}>
+        <i class="fas fa-tower-broadcast"></i>
+        Calls
+        {#if pendingCalls.length}
+          <span class="pd-tab-count">{pendingCalls.length}</span>
+        {/if}
+      </button>
+      <button class="pd-tab" class:pd-tab--active={$MENU_TAB === 'plates'} on:click={() => MENU_TAB.set('plates')}>
+        <i class="fas fa-car-side"></i>
+        Plates
+        {#if $PLATE_HITS.length}
+          <span class="pd-tab-count" class:pd-tab-count--alert={alertHits > 0}>{$PLATE_HITS.length}</span>
+        {/if}
+      </button>
+      {#if $MENU_TAB === 'plates' && $PLATE_HITS.length}
+        <button class="pd-tab-action" title="Clear the whole log" on:click={() => SendNUI('clearPlateHits', {})}>
+          <i class="fas fa-trash-can"></i>
+        </button>
+      {/if}
+    </div>
+    {/if}
+
     {#if statsOpen && $STATS}
       <div class="pd-stats" transition:slide={{ duration: DUR.base, easing: EASE_OUT }}>
         <span><b>{$STATS.calls}</b> calls</span>
@@ -201,15 +241,28 @@
     {/if}
 
     <div class="pd-scroll flex-1 overflow-y-auto p-[10px] flex flex-col gap-[6px]">
-      {#if $DISPATCH_MENU}
-        {#each pendingCalls as dispatch (dispatch.id)}
+      {#if $MENU_TAB === 'calls' || !$PLATES_ENABLED}
+        {#if $DISPATCH_MENU}
+          {#each pendingCalls as dispatch (dispatch.id)}
+            <div animate:flip={{ duration: DUR.base, easing: EASE_OUT }}>
+            <CallRow {dispatch} expanded={activeCallId === dispatch.id} on:toggle={() => toggleDispatch(dispatch.id)} on:expandMap={() => openMap(dispatch)} />
+            </div>
+          {/each}
+          {#if !pendingCalls.length}
+            <p class="pd-more" style="text-align:center; padding-top: 14px;" transition:fade={{ duration: DUR.fast }}>
+              {activeCalls.length ? 'All calls are being handled' : 'No active calls'}
+            </p>
+          {/if}
+        {/if}
+      {:else}
+        {#each $PLATE_HITS as hit (hit.id)}
           <div animate:flip={{ duration: DUR.base, easing: EASE_OUT }}>
-          <CallRow {dispatch} expanded={activeCallId === dispatch.id} on:toggle={() => toggleDispatch(dispatch.id)} on:expandMap={() => openMap(dispatch)} />
+            <PlateRow {hit} expanded={activePlateId === hit.id} on:click={() => togglePlate(hit.id)} />
           </div>
         {/each}
-        {#if !pendingCalls.length}
+        {#if !$PLATE_HITS.length}
           <p class="pd-more" style="text-align:center; padding-top: 14px;" transition:fade={{ duration: DUR.fast }}>
-            {activeCalls.length ? 'All calls are being handled' : 'No active calls'}
+            No plate checks run this session
           </p>
         {/if}
       {/if}

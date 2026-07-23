@@ -8,6 +8,39 @@ Config.AlertTime = 5     -- Specify the duration for the alert to appear on the 
 
 Config.MaxCallList = 25 -- maximum dispatch calls in dispatch list
 
+-- ── Plate check log ─────────────────────────────────────────────────────────
+-- A private, per-officer log of the plate checks they have run, shown as a
+-- second tab in the dispatch menu.
+--
+-- Nothing has to be wired up for this: plate checks already arrive as targeted
+-- alerts (ps-mdt's PlateCheckAlert sends them via SendTargetedAlert), and the
+-- log simply keeps the ones that scroll past. Hits never leave the client that
+-- ran them.
+
+-- use this export server side, for your radar script, this will check the plate, 
+-- and if Config.PlateScanner is true, it will send a client alert with information
+
+-- exports['ps-mdt']:PlateCheckAlert(source, plate)
+Config.PlateScanner = {
+    -- False removes the tab and the tab bar with it — with one panel left
+    -- there is nothing to switch between.
+    Enabled = true,
+ 
+    -- Checks kept in the log. Oldest fall off; this is a patrol log, not an
+    -- archive.
+    MaxHits = 40,
+ 
+    -- Which alert codeNames feed the log. Leave empty to accept any alert that
+    -- carries both a plate and a footer — the convention this UI already uses
+    -- for an ANSWER (plate check, record lookup) as opposed to a job.
+    CodeNames = { 'platecheck' },
+ 
+    -- Per-entry "Request backup" button. Sends ps-dispatch's ordinary
+    -- OfficerBackup alert, so it reaches the board like any other backup call.
+    BackupButton = true,
+    BackupCooldownMs = 60000,
+}
+
 -- ── Call merging (spam collapse) ─────────────────────────────────────────────
 -- Identical alerts (same alert type) reported within `Window` seconds and
 -- `Radius` metres of an existing call bump that call's ×count instead of
@@ -176,6 +209,18 @@ Config.Blips = {
         sound2 = 'GTAO_FM_Events_Soundset',
         offset = false,
         flash = false
+    },
+    -- Backup requested from a plate hit (see Config.PlateScanner.Backup).
+    ['platebackup'] = {
+        radius = 0,
+        sprite = 227,
+        color = 1,
+        scale = 1.6,
+        length = 3,
+        sound = 'Lose_1st',
+        sound2 = 'GTAO_FM_Events_Soundset',
+        offset = false,
+        flash = true
     },
     ['speeding'] = {
         radius = 0,

@@ -154,6 +154,9 @@ local function setupDispatch()
                 if res and GetResourceState(res) ~= 'started' then return false end
                 return url
             end)(),
+            -- Whether the plate scanner log exists at all. When off, the NUI
+            -- drops the tab bar entirely rather than showing a lone tab.
+            platesEnabled = not (Config.PlateScanner and Config.PlateScanner.Enabled == false),
             unattendedAfter = Config.UnattendedAfter or 0,
             pinnedCodes = Config.PinnedCodes or {},
             -- Every alert type this server can produce, so the settings modal
@@ -201,20 +204,29 @@ local function openMenu()
     if not isJobValid(PlayerData.job.type) then return end
 
     local calls = lib.callback.await('ps-dispatch:callback:getCalls', false)
-    if #calls == 0 then
+    -- The menu now holds the plate log too, so "no calls" is no longer the same
+    -- as "nothing to show" — an officer with checks logged and a quiet board
+    -- still needs to get in.
+    local plateCount = GetPlateHitCount and GetPlateHitCount() or 0
+
+    if #calls == 0 and plateCount == 0 then
         lib.notify({ description = locale('no_calls'), position = 'top', type = 'error' })
-    else
-        SendNUIMessage({ action = 'setDispatchs', data = calls, })
-        -- Alert still on screen? Open straight onto that call, expanded.
-        SendNUIMessage({ action = 'focusCall', data = currentAlertCallId() })
-        -- Those popups have served their purpose now that the same calls are
-        -- on screen in the menu — clear the stack instead of letting it hover
-        -- over the panel. Alerts arriving WHILE the menu is open still show:
-        -- the menu list is a snapshot, so they'd be missed otherwise.
-        SendNUIMessage({ action = 'clearAlerts' })
-        activeAlertId = nil
-        toggleUI(true)
+        return
     end
+
+    -- Plate log first: the NUI decides which tab to open on, and it can only
+    -- do that once it knows whether there are entries.
+    if PushPlateHits then PushPlateHits() end
+    SendNUIMessage({ action = 'setDispatchs', data = calls, })
+    -- Alert still on screen? Open straight onto that call, expanded.
+    SendNUIMessage({ action = 'focusCall', data = currentAlertCallId() })
+    -- Those popups have served their purpose now that the same calls are
+    -- on screen in the menu — clear the stack instead of letting it hover
+    -- over the panel. Alerts arriving WHILE the menu is open still show:
+    -- the menu list is a snapshot, so they'd be missed otherwise.
+    SendNUIMessage({ action = 'clearAlerts' })
+    activeAlertId = nil
+    toggleUI(true)
 end
 
 local function setWaypoint()
@@ -439,6 +451,11 @@ RegisterNetEvent('ps-dispatch:client:notify', function(data)
     if alertsDisabled then return end
     if not isJobValid(data.jobs) then return end
     if not IsOnDuty() then return end
+
+    -- Log plate checks before the popup filters below. Muting the 'platecheck'
+    -- type is about screen noise, not about forgetting what you looked up —
+    -- the log is exactly where a muted check should still end up.
+    if CapturePlateCheck then CapturePlateCheck(data) end
     -- "Priority alerts only": routine chatter is dropped entirely (no popup,
     -- no blip, no sound). Assignments addressed to this unit always pass.
     if prefPriorityOnly and data.priority ~= 1 and not data.assigned then return end
@@ -500,10 +517,19 @@ RegisterNetEvent('ps-dispatch:client:openMenu', function(data)
     if not isJobValid(PlayerData.job.type) then return end
     if not IsOnDuty() then return end
 
-    if #data == 0 then
+    -- The menu now holds the plate log as well, so "no calls" is no longer the
+    -- same as "nothing to show" — an officer with scanner hits and a quiet
+    -- board still needs to get in.
+    local plateCount = GetPlateHitCount and GetPlateHitCount() or 0
+
+    if #data == 0 and plateCount == 0 then
         lib.notify({ description = locale('no_calls'), position = 'top', type = 'error' })
     else
         toggleUI(true)
+        -- Plate log first: the NUI decides which tab to open on, and it can
+        -- only do that once it knows whether there are hits. The Lua list is
+        -- the source of truth — the NUI store is empty after any UI reload.
+        if PushPlateHits then PushPlateHits() end
         SendNUIMessage({ action = 'setDispatchs', data = data, })
     end
 end)

@@ -36,6 +36,12 @@ export const MENU_TAB = writable<string>("calls");
 // one panel left there is nothing to switch between.
 export const PLATES_ENABLED = writable<boolean>(true);
 
+// Declared major incidents, newest first. Broadcast whole on every change.
+export const INCIDENTS = writable<any[]>([]);
+// Whether this player's grade allows declaring. Cosmetic only — the server
+// re-checks every declare.
+export const MAY_DECLARE = writable<boolean>(false);
+
 export const DISPATCH_MUTED = writable<boolean>(false);
 export const DISPATCH_DISABLED = writable<boolean>(false);
 

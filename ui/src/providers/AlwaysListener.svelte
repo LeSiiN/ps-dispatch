@@ -2,7 +2,7 @@
 	import { ReceiveNUI } from '@utils/ReceiveNUI'
 	import { debugData } from '@utils/debugData'
 	import { SendNUI } from '@utils/SendNUI'
-	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, FOCUS_CALL, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, REDUCED_MOTION, PLATE_HITS, MENU_TAB, PLATES_ENABLED } from '@store/stores';
+	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, FOCUS_CALL, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, REDUCED_MOTION, PLATE_HITS, MENU_TAB, PLATES_ENABLED, INCIDENTS, MAY_DECLARE } from '@store/stores';
 
 	debugData([
 		{
@@ -82,6 +82,14 @@
 			if (d) d.data.responded = false;
 			return [...dispatches];
 		});
+	});
+
+	ReceiveNUI('incidents', (data: any) => {
+		INCIDENTS.set(Array.isArray(data) ? data : []);
+	});
+
+	ReceiveNUI('mayDeclareIncident', (data: any) => {
+		MAY_DECLARE.set(data === true);
 	});
 
 	ReceiveNUI('plateHits', (data: any) => {

@@ -782,3 +782,66 @@ html, body {
 /* ── Plate hits ─────────────────────────────────────────────────────────── */
 .pd-plate-hit { display: flex; flex-direction: column; }
 .pd-plate-hit--alert .pd-plate { border-color: rgba(239, 68, 68, 0.4); }
+
+/* ── Major incidents ────────────────────────────────────────────────────────
+   One strip per declared incident, above the call list. */
+.pd-incidents {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 10px 0;
+}
+.pd-incident {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 10px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.28);
+    border-left: 3px solid rgb(239, 68, 68);
+    border-radius: 4px;
+}
+.pd-incident-icon { font-size: 12px; color: rgba(248, 113, 113, 0.95); flex-shrink: 0; }
+.pd-incident-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.92);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.pd-incident-sub { font-size: 9px; color: rgba(255, 255, 255, 0.45); }
+.pd-incident-end {
+    flex-shrink: 0;
+    padding: 4px 7px;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 3px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.12s;
+}
+.pd-incident-end:hover { color: #fff; border-color: rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.06); }
+
+/* A pinned incident call keeps the same red language as its banner. */
+.pd-row--incident {
+    border-color: rgba(239, 68, 68, 0.35);
+    box-shadow: inset 3px 0 0 rgba(239, 68, 68, 0.8);
+}
+
+/* "+3 more" under a unit list. Text, not a button — the expanded call row has
+   enough of those already. */
+.pd-more-units {
+    display: block;
+    width: 100%;
+    margin-top: 4px;
+    padding: 2px 0;
+    background: none;
+    border: none;
+    text-align: left;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.35);
+    cursor: pointer;
+    transition: color 0.12s;
+}
+.pd-more-units:hover { color: rgba(255, 255, 255, 0.7); }

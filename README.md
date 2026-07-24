@@ -125,6 +125,7 @@ Add codeName in `config.lua` for the particular robbery to display the blip
 ```
 Information about each parameter is in the `alerts.lua` file.
 
+
 ## Plate check log
 
 The dispatch menu has two tabs: **Calls** (the shared board) and **Plates** (this officer's own plate-check log).
@@ -141,11 +142,35 @@ Config.PlateScanner = {
     MaxHits = 40,
     CodeNames = { 'platecheck' },   -- empty = any alert with a plate AND a footer
     BackupButton = true,
-    BackupCooldownMs = 60000,
+    BackupCooldownMs = 15000,
 }
 ```
 
 Repeat checks on the same plate within a few seconds refresh the existing entry rather than stacking duplicates.
+
+## Major incidents
+
+A supervisor can declare a call a major incident. It pins to the top of every board, shows as a banner, and — optionally — routine chatter goes quiet for the units working it.
+
+Deliberately **not** server-wide silence. Only units attached to an incident are shielded, and only from routine traffic: priority 1 calls, backup requests and anything addressed to a unit always come through, the same carve-outs the existing "priority only" preference uses. A second emergency across town is never hidden by the first.
+
+Several incidents can run at once, each with its own banner strip. The banner says routine traffic is being held back — without that, a quiet board just looks broken.
+
+```lua
+Config.MajorIncident = {
+    Enabled = true,
+    Grades = { police = 4, ambulance = 4 },  -- minimum grade per job name
+    Duration = 1800,     -- seconds, then it ends on its own
+    QuietRoutine = true, -- quiet routine traffic for attached units
+    MaxActive = 3,
+}
+```
+
+Declaring happens from the call itself — open a call and the button sits under Attach — because an incident is always *a specific call*. Two-step confirm, since it changes everyone's board.
+
+Anyone of the right grade can stand one down, not just whoever declared it: otherwise the state sticks when that player logs off. It also ends on its own after `Duration`, and immediately when the call is cleared. Re-declaring an active incident extends it rather than resetting it.
+
+The client hides the button when the grade doesn't qualify, but that's cosmetics — the server re-checks the grade on every declare and stand-down.
 
 # FAQ
 * There are no calls showing on dispatch or mdt list.

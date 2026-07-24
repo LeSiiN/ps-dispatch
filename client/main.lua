@@ -157,6 +157,7 @@ local function setupDispatch()
             -- Whether the plate scanner log exists at all. When off, the NUI
             -- drops the tab bar entirely rather than showing a lone tab.
             platesEnabled = not (Config.PlateScanner and Config.PlateScanner.Enabled == false),
+            incidentsEnabled = not (Config.MajorIncident and Config.MajorIncident.Enabled == false),
             unattendedAfter = Config.UnattendedAfter or 0,
             pinnedCodes = Config.PinnedCodes or {},
             -- Every alert type this server can produce, so the settings modal
@@ -217,6 +218,9 @@ local function openMenu()
     -- Plate log first: the NUI decides which tab to open on, and it can only
     -- do that once it knows whether there are entries.
     if PushPlateHits then PushPlateHits() end
+    -- The suppression needs to know which calls this unit is on, and the menu
+    -- payload already carries every call's unit list.
+    if SyncAttachedCalls then SyncAttachedCalls(calls) end
     SendNUIMessage({ action = 'setDispatchs', data = calls, })
     -- Alert still on screen? Open straight onto that call, expanded.
     SendNUIMessage({ action = 'focusCall', data = currentAlertCallId() })
@@ -462,6 +466,9 @@ RegisterNetEvent('ps-dispatch:client:notify', function(data)
     -- Personal alert-type mutes (settings modal). Assignments addressed to
     -- this unit are never muted.
     if data.codeName and prefMutedCodes[data.codeName] and not data.assigned then return end
+    -- Working a declared major incident: routine traffic is held back so the
+    -- board doesn't bury the incident. Same carve-outs as the filters above.
+    if IncidentQuiets and IncidentQuiets(data) then return end
 
     -- Straight-line distance to the call at the moment it comes in — the
     -- single most useful fact for deciding whether to respond, and the menu
@@ -530,6 +537,7 @@ RegisterNetEvent('ps-dispatch:client:openMenu', function(data)
         -- only do that once it knows whether there are hits. The Lua list is
         -- the source of truth — the NUI store is empty after any UI reload.
         if PushPlateHits then PushPlateHits() end
+        if SyncAttachedCalls then SyncAttachedCalls(data) end
         SendNUIMessage({ action = 'setDispatchs', data = data, })
     end
 end)

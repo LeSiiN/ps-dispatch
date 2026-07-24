@@ -14,9 +14,34 @@
   export let dispatch;              // the call
   export let expanded = false;      // parent-controlled (one open at a time)
   export let showUnitsInline = false; // Active board: callsigns in the row
+  export let isIncident = false;    // declared a major incident
+  export let mayDeclare = false;    // this player's grade allows declaring
+
+  // Declaring changes everyone's board, so it takes the same two-step confirm
+  // the clear button already uses in this file.
+  let confirmDeclare = false;
+  $: if (!expanded) confirmDeclare = false;
+
+  function toggleIncident() {
+    if (isIncident) {
+      SendNUI('standDownIncident', { id: dispatch.id });
+      return;
+    }
+    if (!confirmDeclare) { confirmDeclare = true; return; }
+    confirmDeclare = false;
+    SendNUI('declareIncident', {
+      id: dispatch.id,
+      title: dispatch.message,
+      code: dispatch.code,
+      street: dispatch.street,
+    });
+  }
 
   const emit = createEventDispatcher();
   let showAllUnits = false;
+  // Units arrive in attach order from the server, so the first slice is always
+  // the units that got there first — no sorting needed.
+  const UNIT_LIMIT = 5;
   let confirmClear = false;
   let noteDraft = '';
   let noteOpen = false;
@@ -83,7 +108,7 @@
 </script>
 
 <div data-call-id={dispatch.id}>
-  <button class="pd-row {dispatch.priority == 1 ? 'pd-row--priority' : ''}" class:pd-row--open={expanded} on:click={() => emit('toggle')}>
+  <button class="pd-row {dispatch.priority == 1 ? 'pd-row--priority' : ''} {isIncident ? 'pd-row--incident' : ''}" class:pd-row--open={expanded} on:click={() => emit('toggle')}>
     <div class="pd-icon {dispatch.priority == 1 ? 'pd-icon--priority' : ''}">
       <i class={dispatch.icon}></i>
     </div>
@@ -108,11 +133,11 @@
       </div>
       {#if showUnitsInline && dispatch.units?.length}
         <div class="flex items-center gap-[4px] flex-wrap">
-          {#each dispatch.units.slice(0, 4) as unit}
+          {#each dispatch.units.slice(0, UNIT_LIMIT) as unit}
             <span class="pd-badge {unit.job.type == "leo" ? "pd-badge--blue" : unit.job.type == "ems" ? "pd-badge--red" : ""} pd-mono">{unit.metadata.callsign || unit.charinfo.lastname}</span>
           {/each}
-          {#if dispatch.units.length > 4}
-            <span class="pd-badge">+{dispatch.units.length - 4}</span>
+          {#if dispatch.units.length > UNIT_LIMIT}
+            <span class="pd-badge">+{dispatch.units.length - UNIT_LIMIT}</span>
           {/if}
         </div>
       {/if}
@@ -217,16 +242,19 @@
         <div class="mt-[7px]">
           <span class="pd-kv-label">Attached Units</span>
           <div class="mt-[3px]">
-            {#each dispatch.units.slice(0, showAllUnits ? dispatch.units.length : 3) as unit}
+            {#each dispatch.units.slice(0, showAllUnits ? dispatch.units.length : UNIT_LIMIT) as unit}
               <div class="pd-unit">
                 {#if unit.metadata.callsign}<span class="pd-badge pd-mono">{unit.metadata.callsign}</span>{/if}
                 <span class="pd-badge {unit.job.type == "leo" ? "pd-badge--blue" : unit.job.type == "ems" ? "pd-badge--red" : ""} uppercase">{unit.job.name}</span>
                 <span class="truncate">{unit.charinfo.firstname} {unit.charinfo.lastname}</span>
               </div>
             {/each}
-            {#if dispatch.units.length > 3 && !showAllUnits}
-              <button class="pd-btn w-full mt-[4px]" on:click={() => showAllUnits = true}>
-                +{dispatch.units.length - 3} {$Locale.additionals}
+            {#if dispatch.units.length > UNIT_LIMIT}
+              <!-- Deliberately not a pd-btn: this row already carries note,
+                   clear, attach and possibly declare. A quiet text line reads
+                   as "there is more" without adding to that stack. -->
+              <button class="pd-more-units" on:click|stopPropagation={() => showAllUnits = !showAllUnits}>
+                {showAllUnits ? 'Show fewer' : `+${dispatch.units.length - UNIT_LIMIT} ${$Locale.additionals}`}
               </button>
             {/if}
           </div>
@@ -242,6 +270,18 @@
           {confirmClear ? 'Confirm clear' : 'Clear call'}
         </button>
       </div>
+
+      {#if mayDeclare}
+        <button class="pd-btn {isIncident ? 'pd-btn--red' : confirmDeclare ? 'pd-btn--red' : ''} w-full mt-[5px]" on:click|stopPropagation={toggleIncident}>
+          {#if isIncident}
+            <i class="fas fa-xmark"></i> Stand down major incident
+          {:else if confirmDeclare}
+            <i class="fas fa-triangle-exclamation"></i> Confirm — pins for all units
+          {:else}
+            <i class="fas fa-tower-broadcast"></i> Declare major incident
+          {/if}
+        </button>
+      {/if}
 
       <button class="pd-btn {CheckIfAttached(dispatch.units, $PLAYER.citizenid) ? 'pd-btn--red' : 'pd-btn--green'} w-full mt-[5px]"
         on:click={() => {

@@ -1,5 +1,5 @@
 <script>
-  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, ALERT_POSITION, MAX_VISIBLE_ALERTS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, MAP_IMAGE, FOCUS_CALL, OVERLAY_OPEN, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, REDUCED_MOTION, processedDispatchMenu, PLATE_HITS, MENU_TAB, PLATES_ENABLED } from '@store/stores';
+  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, ALERT_POSITION, MAX_VISIBLE_ALERTS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, MAP_IMAGE, FOCUS_CALL, OVERLAY_OPEN, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, REDUCED_MOTION, processedDispatchMenu, PLATE_HITS, MENU_TAB, PLATES_ENABLED, INCIDENTS, MAY_DECLARE, PLAYER } from '@store/stores';
   import { fly, fade, scale, slide } from 'svelte/transition';
   import { flip } from 'svelte/animate';
   import { DUR, EASE_IN, EASE_OUT } from '@utils/motion';
@@ -21,6 +21,27 @@
   }
 
   $: alertHits = $PLATE_HITS.filter(h => h.tone === 'alert').length;
+
+  // Declared calls float to the top of the list regardless of the usual order —
+  // that pinning is most of the point of declaring one.
+  $: incidentIds = new Set($INCIDENTS.map(i => i.id));
+
+  // Which of them is this player actually working. Only those units are
+  // quieted, so only they may be told that traffic is being held back —
+  // claiming it on every board would be plainly untrue for most of them.
+  $: myIncidentIds = new Set(
+    ($DISPATCH_MENU || [])
+      .filter(c => incidentIds.has(c.id)
+        && (c.units || []).some(u => u?.citizenid === $PLAYER?.citizenid))
+      .map(c => c.id)
+  );
+  const pinIncidents = (list) => incidentIds.size
+    ? [...list].sort((a, b) => (incidentIds.has(b.id) ? 1 : 0) - (incidentIds.has(a.id) ? 1 : 0))
+    : list;
+  $: sortedPending = pinIncidents(pendingCalls);
+  // The active board needs the same treatment: a declared incident always has
+  // units on it, so that board is where it actually lives.
+  $: sortedActive = pinIncidents(activeCalls);
   let statsOpen = false;
   let settingsOpen = false;
 
@@ -164,9 +185,9 @@
         <span class="pd-badge pd-badge--green">{activeCalls.length}</span>
       </div>
       <div class="pd-scroll flex-1 overflow-y-auto p-[10px] flex flex-col gap-[6px]">
-        {#each activeCalls as dispatch (dispatch.id)}
+        {#each sortedActive as dispatch (dispatch.id)}
           <div animate:flip={{ duration: DUR.base, easing: EASE_OUT }}>
-          <CallRow {dispatch} showUnitsInline expanded={activeCallId === dispatch.id} on:toggle={() => toggleDispatch(dispatch.id)} on:expandMap={() => openMap(dispatch)} />
+          <CallRow {dispatch} showUnitsInline expanded={activeCallId === dispatch.id} isIncident={incidentIds.has(dispatch.id)} mayDeclare={$MAY_DECLARE} on:toggle={() => toggleDispatch(dispatch.id)} on:expandMap={() => openMap(dispatch)} />
           </div>
         {/each}
       </div>
@@ -240,12 +261,38 @@
       </div>
     {/if}
 
+    {#if $INCIDENTS.length && ($MENU_TAB === 'calls' || !$PLATES_ENABLED)}
+      <!-- One strip per incident. Saying that routine traffic is being held
+           back matters as much as naming the incident: without it the quiet
+           board just looks broken. -->
+      <div class="pd-incidents">
+        {#each $INCIDENTS as inc (inc.id)}
+          <div class="pd-incident" transition:slide={{ duration: DUR.fast, easing: EASE_OUT }}>
+            <i class="fas fa-triangle-exclamation pd-incident-icon"></i>
+            <div class="flex flex-col min-w-0 flex-1">
+              <span class="pd-incident-title truncate">
+                {inc.code ? inc.code + ' · ' : ''}{inc.title}
+              </span>
+              <span class="pd-incident-sub truncate">
+                declared by {inc.declaredByName}{myIncidentIds.has(inc.id) ? ' · routine traffic held back' : ''}
+              </span>
+            </div>
+            {#if $MAY_DECLARE}
+              <button class="pd-incident-end" title="Stand down" on:click={() => SendNUI('standDownIncident', { id: inc.id })}>
+                <i class="fas fa-xmark"></i>
+              </button>
+            {/if}
+          </div>
+        {/each}
+      </div>
+    {/if}
+
     <div class="pd-scroll flex-1 overflow-y-auto p-[10px] flex flex-col gap-[6px]">
       {#if $MENU_TAB === 'calls' || !$PLATES_ENABLED}
         {#if $DISPATCH_MENU}
-          {#each pendingCalls as dispatch (dispatch.id)}
+          {#each sortedPending as dispatch (dispatch.id)}
             <div animate:flip={{ duration: DUR.base, easing: EASE_OUT }}>
-            <CallRow {dispatch} expanded={activeCallId === dispatch.id} on:toggle={() => toggleDispatch(dispatch.id)} on:expandMap={() => openMap(dispatch)} />
+            <CallRow {dispatch} expanded={activeCallId === dispatch.id} isIncident={incidentIds.has(dispatch.id)} mayDeclare={$MAY_DECLARE} on:toggle={() => toggleDispatch(dispatch.id)} on:expandMap={() => openMap(dispatch)} />
             </div>
           {/each}
           {#if !pendingCalls.length}

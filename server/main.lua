@@ -511,6 +511,9 @@ RegisterServerEvent('ps-dispatch:server:clearCall', function(id)
     table.remove(calls, index)
     stats.cleared = stats.cleared + 1
 
+    -- A cleared call can't stay declared a major incident.
+    if DropIncident then DropIncident(call.id) end
+
     -- Announce to the call's audience so every open menu drops it, then to
     -- the clearing player specifically: they may have already moved out of
     -- the job filter's reach (off duty) but still deserve the confirmation.

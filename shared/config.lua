@@ -168,6 +168,38 @@ Config.Locations = {
     },
 }
 
+-- ── Major incidents ─────────────────────────────────────────────────────────
+-- A supervisor can declare a call a major incident: it pins to the top of
+-- everyone's board and, optionally, quiets routine chatter for the units
+-- working it.
+--
+-- Deliberately NOT server-wide silence. Only units attached to an incident are
+-- shielded, and only from routine traffic — everyone else keeps their normal
+-- board, so a second emergency across town is never hidden by the first.
+Config.MajorIncident = {
+    Enabled = true,
+
+    -- Minimum job grade allowed to declare or stand down an incident, per job
+    -- name. Jobs missing from this list cannot declare at all.
+    Grades = {
+        police = 4,
+        ambulance = 4,
+    },
+
+    -- Automatic end, in seconds. Someone always forgets, or logs off mid-shift.
+    -- Re-declaring an active incident extends it rather than resetting it.
+    Duration = 1800,
+
+    -- Quiet routine alerts for units attached to an incident. Priority 1 calls,
+    -- backup requests and anything addressed to the unit always come through —
+    -- the same carve-outs the existing "priority only" preference uses.
+    QuietRoutine = true,
+
+    -- How many incidents may run at once. Two banks going up together is a real
+    -- situation; a board full of "major" incidents is not.
+    MaxActive = 2,
+}
+
 -- Whitelist Guns that do not send shooting alerts
 Config.WeaponWhitelist = {
     'WEAPON_GRENADE',

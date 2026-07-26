@@ -21,10 +21,10 @@ Do not create issues on GitHub if you need help. Issues are for bug reporting an
 
 # Preview
 
-<img src="https://r2.fivemanage.com/image/Rf225gMK1Ub4.png" width="300">
+<img src="https://r2.fivemanage.com/image/Rf225gMK1Ub4.png" width="450">
 <img src="https://r2.fivemanage.com/image/DzV76xqfT8cB.png" width="300">
 <img src="https://r2.fivemanage.com/image/vE5gfjX0m3gi.png" width="300">
-<img src="https://r2.fivemanage.com/image/6WaNEWFSxCTm.png" width="300">
+<img src="https://r2.fivemanage.com/image/6WaNEWFSxCTm.png" width="450">
 
 # Change Language.
 

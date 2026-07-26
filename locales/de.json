@@ -92,5 +92,15 @@
   "justnow": "gerade eben",
   "minute": "vor Minuten",
   "hour": "vor Stunden",
-  "day": "vor Tagen"
+  "day": "vor Tagen",
+  "platebackup": "Officer fordert Verstärkung an",
+  "signrobbery": "Schilder-Diebstahl",
+  "undergroundrobbery": "Untergrund-Raubüberfall",
+  "plate_log_disabled": "Kennzeichen-Protokoll ist deaktiviert",
+  "plate_backup_disabled": "Verstärkungsanfragen sind deaktiviert",
+  "plate_backup_cooldown": "Verstärkung bereits angefordert",
+  "plate_backup_failed": "Anfrage konnte nicht gesendet werden",
+  "incident_too_many": "Zu viele aktive Großlagen (%s)",
+  "incident_default_title": "Großlage",
+  "incident_supervisor": "Einsatzleitung"
 }

@@ -92,5 +92,15 @@
     "justnow": "práve teď",
     "minute": "před minutamy",
     "hour": "hodiny zpátky",
-    "day": "dny zpátky"
-  }
+    "day": "dny zpátky",
+    "platebackup": "Policista žádá o posily",
+    "signrobbery": "Krádež cedule",
+    "undergroundrobbery": "Podzemní loupež",
+    "plate_log_disabled": "Záznam SPZ je vypnutý",
+    "plate_backup_disabled": "Žádosti o posily jsou vypnuté",
+    "plate_backup_cooldown": "Posily už byly vyžádány",
+    "plate_backup_failed": "Žádost se nepodařilo odeslat",
+    "incident_too_many": "Příliš mnoho aktivních událostí (%s)",
+    "incident_default_title": "Velká událost",
+    "incident_supervisor": "Velitel"
+}

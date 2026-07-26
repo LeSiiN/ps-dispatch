@@ -79,9 +79,13 @@ end
 -- whitelist: id, units, count and the escalation/hotspot bookkeeping have to
 -- survive a merge untouched.
 local MERGE_REFRESH_FIELDS = {
-    'weapon', 'automaticGunFire', 'automaticGunfire', 'information',
-    'vehicle', 'plate', 'color', 'class', 'doors', 'heading',
+    'weapon', 'weaponClass', 'weaponTier', 'automaticGunFire', 'automaticGunfire', 'information',
+    'vehicle', 'plate', 'plateIndex', 'color', 'class', 'doors', 'heading',
     'street', 'gender', 'name', 'number', 'model',
+    -- callsign travels with name: they identify the same person, and refreshing
+    -- one without the other would pair officer A's callsign with officer B's
+    -- name on a merged report.
+    'callsign',
 }
 
 ---@param data table Freshly reported alert

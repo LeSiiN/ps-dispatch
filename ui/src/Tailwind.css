@@ -257,6 +257,12 @@ html, body {
     flex: 1;
     text-align: left;
 }
+/* In the vehicle row the plate belongs to the model beside it — "Sultan,
+   68HBW691" is how you would say it out loud. The shared .pd-strip-title
+   stretches to fill, which pushed the plate to the far edge and left a canyon
+   between them; here it only takes the room it needs. */
+.pd-strip-title--tight { flex: 0 1 auto; }
+
 .pd-strip-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
 
 /* Plate, ImpoundForm .vs-plate verbatim */
@@ -872,3 +878,78 @@ html, body {
     gap: 4px;
     padding: 6px 10px 0;
 }
+/* ── Plate art ──────────────────────────────────────────────────────────────
+   The real plate design drawn behind the number. The art is 2:1 with its
+   "SAN ANDREAS" band across the top quarter, so the element keeps that ratio
+   and the text sits in the lower part where a number belongs. */
+.pd-plateart {
+    display: inline-block;
+    /* Sized to the number it holds. The old 58px floor plus generous padding
+       made the vehicle row noticeably taller than the strips around it, and a
+       plate is a label here, not the subject of the card. */
+    padding: 8px 4px 3px;
+    background-size: 100% 100%;
+    background-repeat: no-repeat;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 12.5px;
+    letter-spacing: 0.5px;
+    line-height: 1;
+    text-align: center;
+    white-space: nowrap;
+    /* The plate is a fixed object: it must not be squeezed when the model name
+       is long. */
+    flex-shrink: 0;
+    /* Plate art is light; without this the number would sit on it invisibly
+       wherever the surrounding card sets a pale colour. */
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+/* Number colour follows the design it sits on, the way the real plates do. */
+.pd-plateart--plateblack  { color: #e0b52e; text-shadow: none; }
+.pd-plateart--plateblue   { color: #d98a1a; text-shadow: none; }
+.pd-plateart--platewhite  { color: #1c3f94; }
+.pd-plateart--platewhite2 { color: #1c3f94; }
+
+/* Copy-plate affordance. Invisible until the row is hovered — a plate log is
+   read far more often than it is copied, and a permanent icon on every line
+   would be one more thing competing for attention. */
+.pd-copy {
+    display: inline-grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    border-radius: 3px;
+    color: rgba(255, 255, 255, 0.3);
+    font-size: 9px;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.12s, color 0.12s, background 0.12s;
+}
+.pd-row:hover .pd-copy { opacity: 1; }
+/* In an expanded call the plate lives in a strip, which is outside the row
+   button — reveal it on the strip instead. */
+.pd-strip:hover .pd-copy { opacity: 1; }
+.pd-copy:hover { color: rgba(255, 255, 255, 0.9); background: rgba(255, 255, 255, 0.08); }
+/* Stays visible while confirming, or the feedback would vanish with the cursor. */
+.pd-copy--done { opacity: 1; color: rgba(52, 211, 153, 0.95); }
+
+/* ── Weapon strip ───────────────────────────────────────────────────────────
+   Threat rides on the left edge and the icon colour. Tier 1 is a sidearm,
+   tier 2 a long gun, tier 3 heavy or explosive — the distinction that decides
+   how you approach, which the old single gold band never made. */
+.pd-weap { border-left: 2px solid rgba(255, 255, 255, 0.15); }
+.pd-weap .pd-strip-row i { opacity: 1; }
+.pd-weap-model {
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.4);
+    white-space: nowrap;
+}
+.pd-weap--t1 { border-left-color: rgba(251, 191, 36, 0.7); }
+.pd-weap--t1 .pd-strip-row i { color: rgba(251, 191, 36, 0.95); }
+.pd-weap--t2 { border-left-color: rgba(249, 115, 22, 0.85); background: rgba(249, 115, 22, 0.05); }
+.pd-weap--t2 .pd-strip-row i { color: rgba(251, 146, 60, 0.95); }
+.pd-weap--t3 { border-left-color: rgb(239, 68, 68); background: rgba(239, 68, 68, 0.07); }
+.pd-weap--t3 .pd-strip-row i { color: rgba(248, 113, 113, 1); }

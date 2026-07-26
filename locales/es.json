@@ -92,5 +92,15 @@
   "justnow": "justo ahora",
   "minute": "minutos atrás",
   "hour": "horas atrás",
-  "day": "días atrás"
+  "day": "días atrás",
+  "platebackup": "Oficial solicita refuerzos",
+  "signrobbery": "Robo de cartel",
+  "undergroundrobbery": "Robo subterráneo",
+  "plate_log_disabled": "El registro de matrículas está desactivado",
+  "plate_backup_disabled": "Las solicitudes de refuerzos están desactivadas",
+  "plate_backup_cooldown": "Refuerzos ya solicitados",
+  "plate_backup_failed": "No se pudo enviar la solicitud",
+  "incident_too_many": "Demasiados incidentes activos (%s)",
+  "incident_default_title": "Incidente mayor",
+  "incident_supervisor": "Supervisor"
 }

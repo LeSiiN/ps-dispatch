@@ -92,5 +92,15 @@
   "justnow": "à l'instant",
   "minute": "minute(s) auparavant",
   "hour": "heure(s) auparavant",
-  "day": "jour(s) auparavant"
+  "day": "jour(s) auparavant",
+  "platebackup": "Officier demande des renforts",
+  "signrobbery": "Vol de panneau",
+  "undergroundrobbery": "Braquage souterrain",
+  "plate_log_disabled": "Le journal des plaques est désactivé",
+  "plate_backup_disabled": "Les demandes de renforts sont désactivées",
+  "plate_backup_cooldown": "Renforts déjà demandés",
+  "plate_backup_failed": "Impossible d'envoyer la demande",
+  "incident_too_many": "Trop d'incidents majeurs actifs (%s)",
+  "incident_default_title": "Incident majeur",
+  "incident_supervisor": "Superviseur"
 }

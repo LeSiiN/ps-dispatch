@@ -1,5 +1,6 @@
 <script>
   import { afterUpdate, onDestroy } from 'svelte';
+  import Plate from './Plate.svelte';
   import { DISPATCH, removeDispatch, RESPOND_KEYBIND, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, THUMBS_ENABLED, COMPACT_ALERTS, ALERT_DURATION, REDUCED_MOTION } from '@store/stores';
   import { fly } from 'svelte/transition';
   import { flip } from 'svelte/animate';
@@ -68,7 +69,22 @@
   }
 
   // The person line only shows what the caller actually revealed.
+  // Same tables as the menu row: a shape reads faster than a word.
+  const WEAPON_ICON = {
+    pistol: 'fa-gun', smg: 'fa-gun', rifle: 'fa-crosshairs',
+    shotgun: 'fa-gun', sniper: 'fa-crosshairs', heavy: 'fa-burst',
+    taser: 'fa-bolt',
+  };
+  const WEAPON_LABEL = {
+    pistol: 'Handgun', smg: 'Submachine gun', rifle: 'Rifle',
+    shotgun: 'Shotgun', sniper: 'Long rifle', heavy: 'Heavy weapon',
+    taser: 'Taser',
+  };
+
   function personLine(d) {
+    // Callsign is deliberately absent here: it renders as a badge pinned to
+    // the name rather than as another dot-separated fact, because it belongs
+    // to the officer beside it, not to the list.
     return [d.name, d.gender, d.number].filter(Boolean);
   }
 
@@ -150,9 +166,9 @@
             <div class="pd-strip">
               <div class="pd-strip-row">
                 <i class="fas fa-car text-[10px] opacity-50"></i>
-                <span class="pd-strip-title">{dispatch.data.vehicle || 'Unknown vehicle'}</span>
+                <span class="pd-strip-title pd-strip-title--tight">{dispatch.data.vehicle || 'Unknown vehicle'}</span>
                 {#if dispatch.data.plate}
-                  <span class="pd-plate">{dispatch.data.plate}</span>
+                  <Plate plate={dispatch.data.plate} index={dispatch.data.plateIndex} />
                 {/if}
               </div>
               {#if vehicleBadges(dispatch.data).length}
@@ -166,20 +182,31 @@
           {/if}
 
           <!-- Danger banner: weapons are a flag, not a table row -->
-          {#if !$COMPACT_ALERTS && ( dispatch.data.weapon || dispatch.data.automaticGunFire)}
-            <div class="pd-danger {dispatch.data.automaticGunFire ? 'pd-danger--red' : ''}">
-              <i class="fas fa-gun"></i>
-              <span>
-                {#if dispatch.data.weapon}{dispatch.data.weapon}{:else}Shots fired{/if}
-                {#if dispatch.data.automaticGunFire}&nbsp;· Automatic fire{/if}
-              </span>
+          {#if !$COMPACT_ALERTS && (dispatch.data.weapon || dispatch.data.automaticGunFire)}
+            <!-- Same strip anatomy and threat tiers as the menu row. -->
+            <div class="pd-strip pd-weap pd-weap--t{dispatch.data.weaponTier || 1}">
+              <div class="pd-strip-row">
+                <i class="fas {WEAPON_ICON[dispatch.data.weaponClass] || 'fa-gun'} text-[10px]"></i>
+                <span class="pd-strip-title pd-strip-title--tight">
+                  {WEAPON_LABEL[dispatch.data.weaponClass] || dispatch.data.weapon || 'Shots fired'}
+                </span>
+                {#if dispatch.data.weapon && WEAPON_LABEL[dispatch.data.weaponClass]}
+                  <span class="pd-weap-model">{dispatch.data.weapon}</span>
+                {/if}
+                {#if dispatch.data.automaticGunFire}
+                  <span class="pd-badge pd-badge--red">Automatic</span>
+                {/if}
+              </div>
             </div>
           {/if}
 
           <!-- Caller / suspect facts -->
-          {#if !$COMPACT_ALERTS && ( personLine(dispatch.data).length)}
+          {#if !$COMPACT_ALERTS && (personLine(dispatch.data).length || dispatch.data.callsign)}
             <div class="pd-person">
               <i class="fas fa-user"></i>
+              {#if dispatch.data.callsign}
+                <span class="pd-badge pd-mono">{dispatch.data.callsign}</span>
+              {/if}
               {#each personLine(dispatch.data) as part, i}
                 {#if i > 0}<span class="opacity-40">·</span>{/if}
                 <span>{part}</span>

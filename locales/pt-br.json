@@ -91,5 +91,17 @@
     "justnow": "agora mesmo",
     "minute": "minutos atrás",
     "hour": "horas atrás",
-    "day": "dias atrás"
-  }
+    "day": "dias atrás",
+    "platebackup": "Oficial solicitando reforços",
+    "signrobbery": "Roubo de Placa",
+    "undergroundrobbery": "Roubo Subterrâneo",
+    "waypoint_set": "Ponto de rota definido.",
+    "alerts_refreshed": "Alertas Atualizados",
+    "plate_log_disabled": "O registro de placas está desativado",
+    "plate_backup_disabled": "Pedidos de reforço estão desativados",
+    "plate_backup_cooldown": "Reforço já solicitado",
+    "plate_backup_failed": "Não foi possível enviar o pedido",
+    "incident_too_many": "Incidentes ativos demais (%s)",
+    "incident_default_title": "Incidente grave",
+    "incident_supervisor": "Supervisor"
+}

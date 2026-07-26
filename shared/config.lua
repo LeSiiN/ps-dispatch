@@ -289,8 +289,8 @@ Config.Blips = {
     -- Backup requested from a plate hit (see Config.PlateScanner.Backup).
     ['platebackup'] = {
         radius = 0,
-        sprite = 227,
-        color = 1,
+        sprite = 56,
+        color = 2,
         scale = 1.6,
         length = 3,
         sound = 'Lose_1st',

@@ -528,7 +528,15 @@ RegisterNetEvent('ps-dispatch:client:notify', function(data)
     -- want the menu.
     RespondToDispatch:disable(false)
 
-    activeAlertId = data.id
+    -- Only calls that are actually on the board can be focused in the menu.
+    -- A targeted alert — a plate check, say — is never in the list, so
+    -- claiming it as the focus made the menu jump to the Calls tab for a call
+    -- that isn't there, overriding the switch to Plates.
+    if data.listed then
+        activeAlertId = data.id
+    else
+        activeAlertId = nil
+    end
     activeAlertUntil = GetGameTimer() + timer
 
     respondWindowToken = respondWindowToken + 1

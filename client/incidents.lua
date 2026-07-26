@@ -25,7 +25,15 @@ RegisterNetEvent('ps-dispatch:client:incidents', function(list)
     pushIncidentsToNui()
 end)
 
-RegisterNetEvent('ps-dispatch:client:incidentRejected', function(message)
+-- The server sends a reason code, not a sentence, so the text lands in the
+-- language of whoever is reading it rather than whatever the server runs.
+RegisterNetEvent('ps-dispatch:client:incidentRejected', function(reason, arg)
+    local message
+    if reason == 'too_many' then
+        message = locale('incident_too_many', tostring(arg))
+    else
+        message = tostring(reason)
+    end
     SendNUIMessage({ action = 'incidentRejected', data = message })
 end)
 

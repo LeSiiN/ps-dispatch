@@ -19,9 +19,12 @@ local function CustomAlert(data)
         name = data.name or nil, -- Name of either officer/ems or a player
         vehicle = data.model or nil, -- Vehicle name
         plate = data.plate or nil, -- Vehicle plate
+        plateIndex = data.plateIndex, -- Plate design (0-5), drawn behind the number
         alertTime = data.alertTime or nil, -- How long it stays on the screen in seconds
         information = data.information or nil, -- Free-text note shown on the alert
         weapon = data.weapon or nil, -- Weapon name (danger banner)
+        weaponClass = data.weaponClass, -- pistol/smg/rifle/shotgun/sniper/heavy
+        weaponTier = data.weaponTier,   -- 1 sidearm · 2 long gun · 3 heavy
         class = data.class or nil, -- Vehicle class
         -- The UI reads `doors` and `automaticGunFire` (capital F) — the old
         -- keys below never matched and thus never displayed for custom
@@ -63,6 +66,7 @@ local function VehicleTheft()
         heading = GetPlayerHeading(),
         vehicle = vehicle.name,
         plate = vehicle.plate,
+        plateIndex = vehicle.plateIndex,
         color = vehicle.color,
         class = vehicle.class,
         doors = vehicle.doors,
@@ -87,6 +91,8 @@ local function Shooting()
         street = GetStreetAndZone(coords),
         gender = GetPlayerGender(),
         weapon = GetWeaponName(),
+        weaponClass = select(1, ClassifyWeapon(GetWeaponName())),
+        weaponTier = select(2, ClassifyWeapon(GetWeaponName())),
         alertTime = nil,
         jobs = { 'leo' }
     }
@@ -105,6 +111,8 @@ local function Hunting()
         icon = 'fas fa-gun',
         priority = 2,
         weapon = GetWeaponName(),
+        weaponClass = select(1, ClassifyWeapon(GetWeaponName())),
+        weaponTier = select(2, ClassifyWeapon(GetWeaponName())),
         coords = coords,
         gender = GetPlayerGender(),
         street = GetStreetAndZone(coords),
@@ -128,10 +136,13 @@ local function VehicleShooting()
         priority = 2,
         coords = coords,
         weapon = GetWeaponName(),
+        weaponClass = select(1, ClassifyWeapon(GetWeaponName())),
+        weaponTier = select(2, ClassifyWeapon(GetWeaponName())),
         street = GetStreetAndZone(coords),
         heading = GetPlayerHeading(),
         vehicle = vehicle.name,
         plate = vehicle.plate,
+        plateIndex = vehicle.plateIndex,
         color = vehicle.color,
         class = vehicle.class,
         doors = vehicle.doors,
@@ -158,6 +169,7 @@ local function SpeedingVehicle()
         heading = GetPlayerHeading(),
         vehicle = vehicle.name,
         plate = vehicle.plate,
+        plateIndex = vehicle.plateIndex,
         color = vehicle.color,
         class = vehicle.class,
         doors = vehicle.doors,
@@ -409,6 +421,7 @@ local function CarJacking(vehicle)
         heading = GetPlayerHeading(),
         vehicle = vehicle.name,
         plate = vehicle.plate,
+        plateIndex = vehicle.plateIndex,
         color = vehicle.color,
         class = vehicle.class,
         doors = vehicle.doors,
@@ -796,6 +809,7 @@ local function CarBoosting(vehicle)
         heading = GetPlayerHeading(),
         vehicle = vehicle.name,
         plate = vehicle.plate,
+        plateIndex = vehicle.plateIndex,
         color = vehicle.color,
         class = vehicle.class,
         doors = vehicle.doors,

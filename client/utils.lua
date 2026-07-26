@@ -132,6 +132,10 @@ function GetVehicleData(vehicle)
     data.doors = getVehicleDoors(vehicle)
     data.color = getVehicleColor(vehicle)
     data.id = NetworkGetNetworkIdFromEntity(vehicle)
+    -- Which plate design the vehicle wears (0-5). The UI draws the matching
+    -- plate art behind the number, so a witness description carries the look
+    -- of the plate and not just its characters.
+    data.plateIndex = GetVehicleNumberPlateTextIndex(vehicle)
 
     return data
 end
@@ -209,4 +213,45 @@ local weaponTable = {
 function GetWeaponName()
     local currentWeapon = GetSelectedPedWeapon(cache.ped)
     return weaponTable[currentWeapon] or "Unknown"
+end
+
+--- Classify a weapon by what a responding unit needs to know.
+---
+--- Derived from the display name rather than a second table keyed by hash:
+--- weaponTable already names every weapon meaningfully, and a parallel list of
+--- 45 hashes would drift out of step the first time one is added.
+---
+--- Returns the class ('pistol', 'smg', 'rifle', 'shotgun', 'sniper', 'heavy',
+--- 'taser') and a threat tier:
+---   1 sidearm · 2 long gun · 3 heavy / explosive
+--- The tier is what the alert colours itself by. A witness reporting "a rifle"
+--- changes how you approach; "Carbine Rifle MK2" does not.
+---@param name string|nil the display name from weaponTable
+---@return string class, number tier
+function ClassifyWeapon(name)
+    local n = tostring(name or ''):lower()
+
+    if n:find('taser') then return 'taser', 1 end
+    if n:find('rpg') or n:find('launcher') or n:find('minigun') or n:find('grenade') then
+        return 'heavy', 3
+    end
+    -- Machine guns sit with the heavy tier: sustained automatic fire is a
+    -- different problem from a rifle, and that is the point of the tier.
+    if n:find('mg') and not n:find('smg') then return 'heavy', 3 end
+    if n:find('sniper') or n:find('marksmanrifle') or n:find('musket') then
+        return 'sniper', 3
+    end
+    if n:find('shotgun') or n:find('sawnoff') or n:find('doublebarrel') then
+        return 'shotgun', 2
+    end
+    -- Checked before 'rifle' so an "Assault SMG" is not read as a rifle.
+    if n:find('smg') or n:find('pdw') or n:find('gusenberg') or n:find('machine%-pistol') then
+        return 'smg', 2
+    end
+    if n:find('rifle') or n:find('carbine') then return 'rifle', 2 end
+    if n:find('pistol') or n:find('revolver') or n:find('eagle') then return 'pistol', 1 end
+
+    -- Unrecognised: treat as a sidearm rather than silently claiming it is
+    -- harmless, but do not escalate on a guess either.
+    return 'pistol', 1
 end

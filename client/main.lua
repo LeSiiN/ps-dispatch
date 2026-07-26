@@ -347,7 +347,12 @@ local function playAlertSound(data, blipData)
     local cfg = Config.AlertSounds or {}
     local pair
 
-    if data and data.priority == 1 then
+    -- Critical is checked first: a priority-0 call also satisfies `<= 1`, so
+    -- the order here is what keeps it from falling back to the priority tone.
+    local level = data and (tonumber(data.priority) or 3) or 3
+    if level <= 0 then
+        pair = cfg.critical
+    elseif level <= 1 then
         pair = cfg.priority
     end
     if not pair and type(blipData) == 'table' then
@@ -360,6 +365,20 @@ local function playAlertSound(data, blipData)
     pair = pair or cfg.default or { audioName = 'Lose_1st', audioRef = 'GTAO_FM_Events_Soundset' }
 
     PlaySound(-1, pair.audioName, pair.audioRef, 0, 0, 1)
+
+    -- Repeat for critical only, and only when the critical pair is what we
+    -- actually landed on — a critical call whose config is missing falls back
+    -- to the routine chime, and hearing that three times would be misleading.
+    local repeats = tonumber(pair.repeats) or 1
+    if repeats > 1 then
+        local gap = tonumber(pair.gapMs) or 220
+        CreateThread(function()
+            for _ = 2, repeats do
+                Wait(gap)
+                PlaySound(-1, pair.audioName, pair.audioRef, 0, 0, 1)
+            end
+        end)
+    end
 end
 
 local function addBlip(data, blipData)
@@ -462,7 +481,7 @@ RegisterNetEvent('ps-dispatch:client:notify', function(data)
     if CapturePlateCheck then CapturePlateCheck(data) end
     -- "Priority alerts only": routine chatter is dropped entirely (no popup,
     -- no blip, no sound). Assignments addressed to this unit always pass.
-    if prefPriorityOnly and data.priority ~= 1 and not data.assigned then return end
+    if prefPriorityOnly and (tonumber(data.priority) or 3) > 1 and not data.assigned then return end
     -- Personal alert-type mutes (settings modal). Assignments addressed to
     -- this unit are never muted.
     if data.codeName and prefMutedCodes[data.codeName] and not data.assigned then return end
@@ -509,7 +528,15 @@ RegisterNetEvent('ps-dispatch:client:notify', function(data)
     -- want the menu.
     RespondToDispatch:disable(false)
 
-    activeAlertId = data.id
+    -- Only calls that are actually on the board can be focused in the menu.
+    -- A targeted alert — a plate check, say — is never in the list, so
+    -- claiming it as the focus made the menu jump to the Calls tab for a call
+    -- that isn't there, overriding the switch to Plates.
+    if data.listed then
+        activeAlertId = data.id
+    else
+        activeAlertId = nil
+    end
     activeAlertUntil = GetGameTimer() + timer
 
     respondWindowToken = respondWindowToken + 1
@@ -653,7 +680,7 @@ end)
 -- Sound diagnostics: prints every gate that can silence an alert and plays
 -- the configured default through whichever backend is actually active.
 if Config.TestCommand then
-    -- /dispatchsound                      -> plays routine, then priority
+    -- /dispatchsound                      -> plays routine, priority, critical
     -- /dispatchsound <audioName> <audioRef> -> tries an arbitrary pair, so a
     --                                          replacement can be auditioned
     --                                          without editing the config.
@@ -670,14 +697,17 @@ if Config.TestCommand then
         end
 
         local cfg = Config.AlertSounds or {}
-        print(('[ps-dispatch] default=%s/%s | priority=%s/%s')
+        print(('[ps-dispatch] default=%s/%s | priority=%s/%s | critical=%s/%s')
             :format(tostring(cfg.default and cfg.default.audioName),
                 tostring(cfg.default and cfg.default.audioRef),
                 tostring(cfg.priority and cfg.priority.audioName),
-                tostring(cfg.priority and cfg.priority.audioRef)))
+                tostring(cfg.priority and cfg.priority.audioRef),
+                tostring(cfg.critical and cfg.critical.audioName),
+                tostring(cfg.critical and cfg.critical.audioRef)))
         playAlertSound({ priority = 2 })
         SetTimeout(1400, function() playAlertSound({ priority = 1 }) end)
-        lib.notify({ description = 'Routine sound, then priority sound', type = 'inform' })
+        SetTimeout(2800, function() playAlertSound({ priority = 0 }) end)
+        lib.notify({ description = 'Routine, then priority, then critical', type = 'inform' })
     end, false)
 
     RegisterCommand(Config.TestCommand, function()
@@ -704,6 +734,8 @@ if Config.TestCommand then
                     })
                 end,
                 -- 3-7: stock alerts, no prerequisites
+                function() exports[res]:OfficerDown() end,
+                function() exports[res]:OfficerInDistress() end,
                 function() exports[res]:Fight() end,
                 function() exports[res]:DrugSale() end,
                 function() exports[res]:SuspiciousActivity() end,

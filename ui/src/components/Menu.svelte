@@ -35,9 +35,11 @@
         && (c.units || []).some(u => u?.citizenid === $PLAYER?.citizenid))
       .map(c => c.id)
   );
-  const pinIncidents = (list) => incidentIds.size
-    ? [...list].sort((a, b) => (incidentIds.has(b.id) ? 1 : 0) - (incidentIds.has(a.id) ? 1 : 0))
-    : list;
+  // Critical first, then declared incidents, then everything else in its usual
+  // order. An officer down outranks a supervisor's declaration — the supervisor
+  // can look up, the officer cannot.
+  const rank = (c) => (c.priority ?? 3) <= 0 ? 0 : incidentIds.has(c.id) ? 1 : 2;
+  const pinIncidents = (list) => [...list].sort((a, b) => rank(a) - rank(b));
   $: sortedPending = pinIncidents(pendingCalls);
   // The active board needs the same treatment: a declared incident always has
   // units on it, so that board is where it actually lives.
@@ -322,7 +324,7 @@
     <div class="pd-modal-overlay" on:click|self={() => mapCall = null} transition:fade={{ duration: DUR.fast }}>
       <div class="pd-map-modal" in:scale={{ start: 0.96, duration: DUR.base, easing: EASE_IN }} out:scale={{ start: 0.97, duration: DUR.exit, easing: EASE_OUT }}>
         <div class="pd-modal-head">
-          <div class="pd-icon {mapCall.priority == 1 ? 'pd-icon--priority' : ''}">
+          <div class="pd-icon {(mapCall.priority ?? 3) <= 1 ? 'pd-icon--priority' : ''} {(mapCall.priority ?? 3) <= 0 ? 'pd-icon--critical' : ''}">
             <i class={mapCall.icon}></i>
           </div>
           <span class="pd-modal-title">{mapCall.message}</span>

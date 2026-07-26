@@ -49,6 +49,30 @@ local function isPlateCheck(data)
     return type(data.footer) == 'table'
 end
 
+--- The plate design of a vehicle currently in the world wearing this exact
+--- plate, or nil if none is.
+---
+--- A plate check is a database lookup, so the alert carries no design — but the
+--- officer who ran it is looking at the car as it arrives, so the answer is
+--- usually right there. The match is on the exact plate string: a near-miss
+--- never matches, and a vehicle that has already driven off simply yields nil
+--- and the neutral badge. Nothing is guessed.
+---@param plate string already normalised (no spaces, upper case)
+---@return number|nil
+local function findPlateIndex(plate)
+    local ok, result = pcall(function()
+        for _, veh in ipairs(GetGamePool('CVehicle')) do
+            local text = GetVehicleNumberPlateText(veh)
+            if text and text:gsub('%s+', ''):upper() == plate then
+                return GetVehicleNumberPlateTextIndex(veh)
+            end
+        end
+        return nil
+    end)
+    if ok then return result end
+    return nil
+end
+
 --- Street label for a set of coords, or nil.
 ---@param c table|nil
 ---@return string|nil
@@ -80,6 +104,9 @@ local function logPlateCheck(data)
         id      = hitSeq,
         plate   = plate,
         vehicle = str(data.vehicle, 48),
+        -- The alert's own value wins when the querying resource sends one;
+        -- otherwise read it off the car in front of the officer.
+        plateIndex = tonumber(data.plateIndex) or findPlateIndex(plate),
         owner   = str(data.name, 48),
         -- The MDT already phrased the result; repeating that judgement here
         -- would only risk disagreeing with the alert the officer just read.
@@ -90,7 +117,7 @@ local function logPlateCheck(data)
         street  = str(data.street, 64) or resolveStreet(data.displayCoords or data.coords),
         footerText = footer and str(footer.text, 64) or nil,
         footerIcon = footer and str(footer.icon, 48) or nil,
-        tone    = ((footer and footer.tone == 'alert') or data.priority == 1) and 'alert' or 'normal',
+        tone    = ((footer and footer.tone == 'alert') or (tonumber(data.priority) or 3) <= 1) and 'alert' or 'normal',
         time    = GetGameTimer(),
         -- os.* is server-only in FiveM's Lua; GetCloudTimeAsInt is the
         -- client-side wall clock, same as client/main.lua uses.
@@ -166,17 +193,17 @@ end)
 -- other backup call — same code, same blip, same sound. The plate stays on this
 -- officer's screen; what backup needs is a position.
 RegisterNUICallback('plateBackup', function(_, cb)
-    if cfg().Enabled == false then cb({ ok = false, message = 'Plate log is disabled' }) return end
-    if cfg().BackupButton == false then cb({ ok = false, message = 'Backup requests are disabled' }) return end
+    if cfg().Enabled == false then cb({ ok = false, message = locale('plate_log_disabled') }) return end
+    if cfg().BackupButton == false then cb({ ok = false, message = locale('plate_backup_disabled') }) return end
 
     local now = GetGameTimer()
     local cooldown = tonumber(cfg().BackupCooldownMs) or 15000
     if now - lastBackupAt < cooldown then
-        cb({ ok = false, message = 'Backup already requested' })
+        cb({ ok = false, message = locale('plate_backup_cooldown') })
         return
     end
     lastBackupAt = now
 
-    local ok = pcall(function() exports[resourceName]:OfficerBackup() end)
-    cb({ ok = ok, message = ok and nil or 'Could not send the request' })
+    local ok = pcall(function() exports[resourceName]:PlateBackup() end)
+    cb({ ok = ok, message = ok and nil or locale('plate_backup_failed') })
 end)

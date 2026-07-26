@@ -8,6 +8,33 @@ Config.AlertTime = 5     -- Specify the duration for the alert to appear on the 
 
 Config.MaxCallList = 25 -- maximum dispatch calls in dispatch list
 
+-- ── Critical alerts ─────────────────────────────────────────────────────────
+-- Priority 0: above the existing red. Reserved for calls that make every unit
+-- drop what it is doing.
+--
+-- Kept deliberately short. The point of a top tier is that it means something,
+-- and a board where half the calls are critical is the situation this was
+-- added to fix. Repeated reports still escalate a routine call to priority 1,
+-- but never into this tier: critical is granted, not accumulated.
+--
+-- Nothing is renumbered: other resources keep sending 1/2/3 and keep their
+-- meaning. Only these code names are lifted above them.
+Config.CriticalCodes = {
+    -- An officer in trouble outranks any civilian crime.
+    'officerdown',
+    'officerdistress',
+    'emsdown',
+    -- Major robberies. Store hold-ups deliberately excluded: serious, but not
+    -- "abandon everything" events.
+    'bankrobbery',            -- Fleeca
+    'pacificbankrobbery',
+    'paletobankrobbery',
+    'vangelicorobbery',       -- jeweller
+    'humanelabsrobbery',
+    'unionrobbery',
+    'prisonbreak',
+}
+
 -- ── Plate check log ─────────────────────────────────────────────────────────
 -- A private, per-officer log of the plate checks they have run, shown as a
 -- second tab in the dispatch menu.
@@ -124,9 +151,26 @@ Config.AlertSounds = {
     -- Routine calls: the familiar dispatch chime.
     default = { audioName = 'Lose_1st', audioRef = 'GTAO_FM_Events_Soundset' },
     -- Priority 1 calls (and anything escalated into priority 1): an urgent
-    -- beep instead of a chime, so critical traffic is audibly different
+    -- beep instead of a chime, so urgent traffic is audibly different
     -- without anyone having to look at the screen.
     priority = { audioName = 'CHECKPOINT_MISSED', audioRef = 'HUD_MINI_GAME_SOUNDSET' },
+    -- Priority 0 (Config.CriticalCodes): a harder tone, repeated.
+    --
+    -- The repeat matters more than the tone. Two unfamiliar beeps are hard to
+    -- tell apart mid-firefight, but a burst is recognisable even when you
+    -- can't name the sound — the same reason the visual tier uses motion
+    -- rather than another shade of red.
+    -- Stays inside HUD_MINI_GAME_SOUNDSET, the soundset the priority tone
+    -- already uses successfully — no audio bank to request, no guessing.
+    -- Alternatives from the same set if this one doesn't suit:
+    --   '10_SEC_WARNING'  (softer, lower)
+    --   'TIMER_STOP'      (blunt, single thud)
+    critical = {
+        audioName = 'TIMER_STOP',
+        audioRef = 'HUD_MINI_GAME_SOUNDSET',
+        repeats = 2,   -- how many times it fires
+        gapMs = 700,   -- spacing between them
+    },
 }
 
 Config.OnDutyOnly = true -- Set true if only on duty players can see the alert
@@ -221,38 +265,38 @@ Config.WeaponWhitelist = {
 
 Config.Blips = {
     ['vehicleshots'] = { -- Need to match the codeName in alerts.lua
-        radius = 0,
+        radius = 110.0,
         sprite = 119,
         color = 1,
         scale = 1.5,
         length = 2,
         sound = 'Lose_1st',
         sound2 = 'GTAO_FM_Events_Soundset',
-        offset = false,
+        offset = true,
         flash = false
     },
     ['shooting'] = {
-        radius = 0,
+        radius = 110.0,
         sprite = 110,
         color = 1,
         scale = 1.5,
         length = 2,
         sound = 'Lose_1st',
         sound2 = 'GTAO_FM_Events_Soundset',
-        offset = false,
+        offset = true,
         flash = false
     },
     -- Backup requested from a plate hit (see Config.PlateScanner.Backup).
     ['platebackup'] = {
         radius = 0,
-        sprite = 227,
-        color = 1,
+        sprite = 56,
+        color = 2,
         scale = 1.6,
         length = 3,
         sound = 'Lose_1st',
         sound2 = 'GTAO_FM_Events_Soundset',
         offset = false,
-        flash = true
+        flash = false
     },
     ['speeding'] = {
         radius = 0,
@@ -266,14 +310,14 @@ Config.Blips = {
         flash = false
     },
     ['fight'] = {
-        radius = 0,
+        radius = 60.0,
         sprite = 685,
         color = 69,
         scale = 1.5,
         length = 2,
         sound = 'Lose_1st',
         sound2 = 'GTAO_FM_Events_Soundset',
-        offset = false,
+        offset = true,
         flash = false
     },
     ['civdown'] = {
@@ -319,7 +363,7 @@ Config.Blips = {
         flash = false
     },
     ['officerdown'] = {
-        radius = 15.0,
+        radius = 0,
         sprite = 526,
         color = 1,
         scale = 1.5,
@@ -329,7 +373,7 @@ Config.Blips = {
         flash = true
     },
     ['officerbackup'] = {
-        radius = 15.0,
+        radius = 0,
         sprite = 526,
         color = 1,
         scale = 1.5,
@@ -339,7 +383,7 @@ Config.Blips = {
         flash = true
     },
     ['officerdistress'] = {
-        radius = 15.0,
+        radius = 0,
         sprite = 526,
         color = 1,
         scale = 1.5,
@@ -441,14 +485,14 @@ Config.Blips = {
         flash = false
     },
     ['houserobbery'] = {
-        radius = 0,
+        radius = 60.0,
         sprite = 40,
         color = 5,
         scale = 1.5,
         length = 2,
         sound = 'Lose_1st',
         sound2 = 'GTAO_FM_Events_Soundset',
-        offset = false,
+        offset = true,
         flash = false
     },
     ['suspicioushandoff'] = {
@@ -473,14 +517,14 @@ Config.Blips = {
         flash = false
     },
     ['vehicletheft'] = {
-        radius = 0,
+        radius = 80.0,
         sprite = 595,
         color = 60,
         scale = 1.5,
         length = 2,
         sound = 'Lose_1st',
         sound2 = 'GTAO_FM_Events_Soundset',
-        offset = false,
+        offset = true,
         flash = false
     },
     ['signrobbery'] = {
@@ -495,14 +539,14 @@ Config.Blips = {
         flash = false
     },
     ['susactivity'] = {
-        radius = 0,
+        radius = 130.0,
         sprite = 66,
         color = 37,
         scale = 0.5,
         length = 2,
         sound = 'Lose_1st',
         sound2 = 'GTAO_FM_Events_Soundset',
-        offset = false,
+        offset = true,
         flash = false
     },
     -- Rainmad Scripts
@@ -588,14 +632,14 @@ Config.Blips = {
         flash = false
     },
     ['carjack'] = {
-        radius = 0,
+        radius = 80.0,
         sprite = 595,
         color = 60,
         scale = 1.5,
         length = 2,
         sound = 'Lose_1st',
         sound2 = 'GTAO_FM_Events_Soundset',
-        offset = false,
+        offset = true,
         flash = false
     },
     ['explosion'] = {

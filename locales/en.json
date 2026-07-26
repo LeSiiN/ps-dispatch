@@ -92,5 +92,15 @@
   "justnow": "just now",
   "minute": "minutes ago",
   "hour": "hours ago",
-  "day": "days ago"
+  "day": "days ago",
+  "platebackup": "Officer requesting backup",
+  "signrobbery": "Sign Robbery",
+  "undergroundrobbery": "Underground Robbery",
+  "plate_log_disabled": "Plate log is disabled",
+  "plate_backup_disabled": "Backup requests are disabled",
+  "plate_backup_cooldown": "Backup already requested",
+  "plate_backup_failed": "Could not send the request",
+  "incident_too_many": "Too many active incidents (%s)",
+  "incident_default_title": "Major incident",
+  "incident_supervisor": "Supervisor"
 }

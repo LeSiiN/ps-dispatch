@@ -91,8 +91,7 @@ RegisterServerEvent('ps-dispatch:server:declareIncident', function(payload)
 
     local max = tonumber(cfg().MaxActive) or 3
     if countActive() >= max then
-        TriggerClientEvent('ps-dispatch:client:incidentRejected', src,
-            ('Too many active incidents (%d)'):format(max))
+        TriggerClientEvent('ps-dispatch:client:incidentRejected', src, 'too_many', max)
         return
     end
 
@@ -102,13 +101,13 @@ RegisterServerEvent('ps-dispatch:server:declareIncident', function(payload)
 
     activeIncidents[id] = {
         id = id,
-        title = type(payload.title) == 'string' and payload.title:sub(1, 64) or 'Major incident',
+        title = type(payload.title) == 'string' and payload.title:sub(1, 64) or locale('incident_default_title'),
         code = type(payload.code) == 'string' and payload.code:sub(1, 12) or nil,
         street = type(payload.street) == 'string' and payload.street:sub(1, 64) or nil,
         declaredBy = player and player.PlayerData.citizenid or nil,
         declaredByName = (meta and meta.callsign)
             or (charinfo and (charinfo.firstname .. ' ' .. charinfo.lastname))
-            or 'Supervisor',
+            or locale('incident_supervisor'),
         declaredAt = GetGameTimer(),
         expiresAt = expiresAt,
     }

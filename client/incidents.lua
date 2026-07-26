@@ -25,7 +25,15 @@ RegisterNetEvent('ps-dispatch:client:incidents', function(list)
     pushIncidentsToNui()
 end)
 
-RegisterNetEvent('ps-dispatch:client:incidentRejected', function(message)
+-- The server sends a reason code, not a sentence, so the text lands in the
+-- language of whoever is reading it rather than whatever the server runs.
+RegisterNetEvent('ps-dispatch:client:incidentRejected', function(reason, arg)
+    local message
+    if reason == 'too_many' then
+        message = locale('incident_too_many', tostring(arg))
+    else
+        message = tostring(reason)
+    end
     SendNUIMessage({ action = 'incidentRejected', data = message })
 end)
 
@@ -51,7 +59,9 @@ end
 function IncidentQuiets(data)
     if cfg().Enabled == false or cfg().QuietRoutine == false then return false end
     if type(data) ~= 'table' then return false end
-    if data.priority == 1 or data.assigned then return false end
+    -- `<= 1` so the new critical tier counts as urgent too; a plain `== 1`
+    -- would have quieted the most important alert there is.
+    if (tonumber(data.priority) or 3) <= 1 or data.assigned then return false end
     -- An alert about an incident the player is working is never chatter.
     if data.id and attachedCallIds[data.id] then return false end
     return onIncident()

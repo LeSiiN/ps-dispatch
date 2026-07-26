@@ -12,26 +12,80 @@ pcall(function() QBCore = exports['qb-core']:GetCoreObject() end)
 -- search radius. Every officer's blip, the map thumbnail and the menu then
 -- agree on the same spot — and the exact location never leaves the server's
 -- visuals for offset alerts.
+--- Offset vectors, keyed by call id, kept server-side ONLY. Storing them on
+--- the call itself would ship them to every client, and anyone could subtract
+--- the offset back out.
+local callOffsets = {}
+
 local function resolveBlipMeta(data)
     local blip = Config.Blips and Config.Blips[data.codeName] or nil
     local radius = blip and tonumber(blip.radius) or 0
     if radius and radius > 0 then data.mapRadius = radius end
-    if blip and blip.offset then
-        local off = math.floor(tonumber(Config.MaxOffset) or 100)
-        data.displayCoords = {
-            x = data.coords.x + math.random(-off, off),
-            y = data.coords.y + math.random(-off, off),
-        }
+    if not (blip and blip.offset) then return end
+
+    local key = data.id
+    local vec = key and callOffsets[key]
+
+    if not vec then
+        local minOff = math.max(0, tonumber(Config.MinOffset) or 0)
+        local maxOff = math.max(0, tonumber(Config.MaxOffset) or 100)
+
+        -- Cap the displacement by the search radius. Previously the two were
+        -- independent: an explosion drew a 75m circle while the position could
+        -- be thrown up to 120m on EACH axis — about 170m diagonally — so the
+        -- reported circle usually did not contain the incident at all. The
+        -- radius is supposed to be the search area, so the truth has to be
+        -- inside it.
+        if radius > 0 then maxOff = math.min(maxOff, radius) end
+        if minOff > maxOff then minOff = 0 end
+
+        -- Polar, and area-uniform rather than radius-uniform. Sampling the
+        -- distance linearly would pile the truth up near the middle, and
+        -- officers would learn to always search the centre first. With the
+        -- sqrt weighting every point in the circle is equally likely, so no
+        -- part of the search area is a better guess than any other.
+        local u = math.random()
+        local dist = math.sqrt(minOff * minOff + u * (maxOff * maxOff - minOff * minOff))
+        local ang = math.random() * math.pi * 2
+
+        vec = { x = math.cos(ang) * dist, y = math.sin(ang) * dist }
+        if key then callOffsets[key] = vec end
     end
+
+    -- z is carried across so the client doesn't have to fall back to the real
+    -- coords for it.
+    data.displayCoords = {
+        x = data.coords.x + vec.x,
+        y = data.coords.y + vec.y,
+        z = data.coords.z,
+    }
+end
+
+--- The client-facing view of a call. For offset alerts the true position is
+--- removed entirely: the whole point of the offset is that the exact spot is
+--- unknown, and shipping `coords` alongside `displayCoords` handed it over to
+--- anyone reading the packet.
+---@param call table
+---@return table
+local function publicCall(call)
+    if type(call) ~= 'table' or not call.displayCoords then return call end
+    local copy = {}
+    for k, v in pairs(call) do copy[k] = v end
+    copy.coords = nil
+    return copy
 end
 
 -- Fields a merged report may overwrite on the existing call. Deliberately a
 -- whitelist: id, units, count and the escalation/hotspot bookkeeping have to
 -- survive a merge untouched.
 local MERGE_REFRESH_FIELDS = {
-    'weapon', 'automaticGunFire', 'automaticGunfire', 'information',
-    'vehicle', 'plate', 'color', 'class', 'doors', 'heading',
+    'weapon', 'weaponClass', 'weaponTier', 'automaticGunFire', 'automaticGunfire', 'information',
+    'vehicle', 'plate', 'plateIndex', 'color', 'class', 'doors', 'heading',
     'street', 'gender', 'name', 'number', 'model',
+    -- callsign travels with name: they identify the same person, and refreshing
+    -- one without the other would pair officer A's callsign with officer B's
+    -- name on a merged report.
+    'callsign',
 }
 
 ---@param data table Freshly reported alert
@@ -73,7 +127,11 @@ local function tryMergeCall(data)
                 -- routine. The rebroadcast carries the new priority, so a
                 -- popup still on screen flips red in place.
                 local escalateAt = merge.EscalateAt or 0
-                if escalateAt > 0 and call.count >= escalateAt and call.priority ~= 1 then
+                -- `> 1` rather than `~= 1`: a critical call is priority 0, and
+                -- `~= 1` would have quietly demoted it to 1 on the next report.
+                -- Escalation may raise a routine call to 1, never into the
+                -- critical tier — that one is granted, not accumulated.
+                if escalateAt > 0 and call.count >= escalateAt and call.priority > 1 then
                     call.priority = 1
                     call.escalated = true
                 end
@@ -90,8 +148,12 @@ end
 -- (including all civilians), each of which then filtered it away — wasted
 -- bandwidth and event handling that scales with slot count.
 local function broadcastCall(data)
+    -- Every path out of here goes through publicCall: an offset alert must
+    -- not carry its true coords, no matter which branch sends it.
+    local payload = publicCall(data)
+
     if Config.FilteredBroadcast == false or not QBCore then
-        TriggerClientEvent('ps-dispatch:client:notify', -1, data)
+        TriggerClientEvent('ps-dispatch:client:notify', -1, payload)
         return
     end
 
@@ -100,7 +162,7 @@ local function broadcastCall(data)
         local job = player.PlayerData and player.PlayerData.job
         if job and (lib.table.contains(data.jobs, job.type) or lib.table.contains(data.jobs, job.name)) then
             if Config.FilterOnDuty == false or job.onduty then
-                TriggerClientEvent('ps-dispatch:client:notify', src, data)
+                TriggerClientEvent('ps-dispatch:client:notify', src, payload)
             end
         end
     end
@@ -218,11 +280,22 @@ exports('GetDispatchCalls', function()
 end)
 
 -- Events
+--- Code names that outrank everything, as a set for cheap lookup.
+local criticalCodes = {}
+for _, code in ipairs(Config.CriticalCodes or {}) do criticalCodes[code] = true end
+
 RegisterServerEvent('ps-dispatch:server:notify', function(data)
     local src = source
     if not notifyAllowed(src) then return end
     data = sanitizeNotify(data)
     if not data then return end
+
+    -- Lift configured alerts above the existing red. Done here, once, rather
+    -- than in each alert function: the big robberies come from other resources
+    -- via CustomAlert, so the code name is the only handle we have on them.
+    if data.codeName and criticalCodes[data.codeName] then
+        data.priority = 0
+    end
 
     -- Spam collapse: identical nearby alert within the merge window bumps the
     -- existing call (marked `merged`) instead of creating a new one.
@@ -254,6 +327,10 @@ RegisterServerEvent('ps-dispatch:server:notify', function(data)
     end
 
     calls[#calls + 1] = data
+    -- Tells the client this alert belongs on the board, so an open menu can
+    -- add it live. Targeted alerts (plate checks and the like) never get it
+    -- and stay out of the list, which is the whole distinction.
+    data.listed = true
 
     broadcastCall(data)
 end)
@@ -323,15 +400,23 @@ lib.callback.register('ps-dispatch:callback:getLatestDispatch', function(source)
     return calls[#calls]
 end)
 
+--- The whole call list, sanitised. Same reasoning as broadcastCall: the menu
+--- and the map read from here too.
+local function publicCalls()
+    local out = {}
+    for i = 1, #calls do out[i] = publicCall(calls[i]) end
+    return out
+end
+
 lib.callback.register('ps-dispatch:callback:getCalls', function(source)
-    return calls
+    return publicCalls()
 end)
 
 -- Commands
 lib.addCommand('dispatch', {
     help = locale('open_dispatch')
 }, function(source, raw)
-    TriggerClientEvent("ps-dispatch:client:openMenu", source, calls)
+    TriggerClientEvent("ps-dispatch:client:openMenu", source, publicCalls())
 end)
 
 lib.addCommand('911', {
@@ -450,13 +535,19 @@ local function sendTargetedAlert(targets, data)
     if data.addToList then
         if #calls >= Config.MaxCallList then table.remove(calls, 1) end
         calls[#calls + 1] = data
+        data.listed = true
     end
     data.addToList = nil
+
+    -- Same sanitiser as the broadcast path. Targeted alerts don't use offsets
+    -- today, but the rule is "no true coords leave with a display position",
+    -- and that shouldn't depend on which function happens to send it.
+    local payload = publicCall(data)
 
     for i = 1, #targets do
         local target = tonumber(targets[i])
         if target and target > 0 then
-            TriggerClientEvent('ps-dispatch:client:notify', target, data)
+            TriggerClientEvent('ps-dispatch:client:notify', target, payload)
         end
     end
     return true
@@ -513,6 +604,8 @@ RegisterServerEvent('ps-dispatch:server:clearCall', function(id)
 
     -- A cleared call can't stay declared a major incident.
     if DropIncident then DropIncident(call.id) end
+    -- Drop its stored offset too, or the table grows for the whole uptime.
+    callOffsets[call.id] = nil
 
     -- Announce to the call's audience so every open menu drops it, then to
     -- the clearing player specifically: they may have already moved out of

@@ -4,9 +4,10 @@
   // person line, note, units, attach button). Extracted from Menu.svelte so
   // the pending list and the Active Calls board share one implementation.
   import { createEventDispatcher } from 'svelte';
+  import Plate from './Plate.svelte';
   import { slide } from 'svelte/transition';
   import { DUR, EASE_OUT } from '@utils/motion';
-  import { PLAYER, Locale, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, THUMBS_ENABLED } from '@store/stores';
+  import { PLAYER, Locale, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, THUMBS_ENABLED, REDUCED_MOTION } from '@store/stores';
   import { timeAgo } from '@utils/timeAgo';
   import { SendNUI } from '@utils/SendNUI';
   import MapThumb from './MapThumb.svelte';
@@ -19,6 +20,37 @@
 
   // Declaring changes everyone's board, so it takes the same two-step confirm
   // the clear button already uses in this file.
+  // Same copy path as the plate log: navigator.clipboard needs a secure
+  // context, which the NUI is not.
+  let copiedPlate = false;
+  function copyPlate() {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = dispatch.plate;
+      ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      copiedPlate = true;
+      setTimeout(() => (copiedPlate = false), 1400);
+    } catch { /* nothing sensible to say if the host blocks it */ }
+  }
+
+  // Silhouette per class — a shape reads faster than a word when you are
+  // driving. Font Awesome has no shotgun or SMG, so the closest gun glyph
+  // stands in and the label carries the detail.
+  const WEAPON_ICON = {
+    pistol: 'fa-gun', smg: 'fa-gun', rifle: 'fa-crosshairs',
+    shotgun: 'fa-gun', sniper: 'fa-crosshairs', heavy: 'fa-burst',
+    taser: 'fa-bolt',
+  };
+  const WEAPON_LABEL = {
+    pistol: 'Handgun', smg: 'Submachine gun', rifle: 'Rifle',
+    shotgun: 'Shotgun', sniper: 'Long rifle', heavy: 'Heavy weapon',
+    taser: 'Taser',
+  };
+
   let confirmDeclare = false;
   $: if (!expanded) confirmDeclare = false;
 
@@ -42,6 +74,13 @@
   // Units arrive in attach order from the server, so the first slice is always
   // the units that got there first — no sorting needed.
   const UNIT_LIMIT = 5;
+
+  // Priority 0 sits above the existing red. Everything that used to ask
+  // "== 1" now asks "<= 1", so critical inherits every urgent treatment and
+  // adds its own on top — otherwise the most important call on the board
+  // would have rendered as routine.
+  $: isCritical = (dispatch.priority ?? 3) <= 0;
+  $: isUrgent = (dispatch.priority ?? 3) <= 1;
   let confirmClear = false;
   let noteDraft = '';
   let noteOpen = false;
@@ -95,6 +134,9 @@
   }
 
   function personLine(d) {
+    // Callsign is deliberately absent here: it renders as a badge pinned to
+    // the name rather than as another dot-separated fact, because it belongs
+    // to the officer beside it, not to the list.
     return [d.name, d.gender, d.number].filter(Boolean);
   }
 
@@ -108,28 +150,33 @@
 </script>
 
 <div data-call-id={dispatch.id}>
-  <button class="pd-row {dispatch.priority == 1 ? 'pd-row--priority' : ''} {isIncident ? 'pd-row--incident' : ''}" class:pd-row--open={expanded} on:click={() => emit('toggle')}>
-    <div class="pd-icon {dispatch.priority == 1 ? 'pd-icon--priority' : ''}">
+  <button class="pd-row {isUrgent ? 'pd-row--priority' : ''} {isCritical ? ($REDUCED_MOTION ? 'pd-row--critical pd-no-pulse' : 'pd-row--critical') : ''} {isIncident ? 'pd-row--incident' : ''}" class:pd-row--open={expanded} on:click={() => emit('toggle')}>
+    <div class="pd-icon {isUrgent ? 'pd-icon--priority' : ''} {isCritical ? 'pd-icon--critical' : ''}">
       <i class={dispatch.icon}></i>
     </div>
     <div class="flex flex-col min-w-0 flex-1 gap-[2px]">
-      <div class="flex items-center gap-[6px]">
+      <!-- Only the two fixed-width badges share the headline. Everything that
+           can stack up — pin, repeat count, hotspot — sits on the meta line
+           below, because the one thing that must never be squeezed out is
+           what actually happened. -->
+      <div class="flex items-center gap-[6px] min-w-0">
+        <span class="pd-badge {isUrgent ? 'pd-badge--red' : 'pd-badge--cyan'} flex-shrink-0">{dispatch.code}</span>
+        {#if isCritical}<span class="pd-badge pd-badge--critical flex-shrink-0">Critical</span>{/if}
+        <span class="pd-row-msg flex-1 min-w-0">{dispatch.message}</span>
+      </div>
+      <div class="flex items-center gap-[8px] min-w-0">
+        <span class="pd-kv-label flex-shrink-0">#{dispatch.id}</span>
+        {#if dispatch.street}<span class="text-[10px] opacity-40 truncate">{dispatch.street}</span>{/if}
+        <span class="pd-time flex-shrink-0">{timeAgo(dispatch.time)}</span>
         {#if $PINNED_CODES.includes(dispatch.codeName)}
-          <span class="pd-badge pd-badge--red" title="Pinned critical call"><i class="fas fa-thumbtack"></i></span>
+          <span class="pd-badge pd-badge--red flex-shrink-0" title="Pinned critical call"><i class="fas fa-thumbtack"></i></span>
         {/if}
-        <span class="pd-badge {dispatch.priority == 1 ? 'pd-badge--red' : 'pd-badge--cyan'}">{dispatch.code}</span>
         {#if (dispatch.count || 1) > 1}
-          <span class="pd-badge pd-badge--red">×{dispatch.count}</span>
+          <span class="pd-badge pd-badge--red flex-shrink-0">×{dispatch.count}</span>
         {/if}
         {#if dispatch.hotspot}
-          <span class="pd-badge pd-badge--purple" title="Repeated incidents on this street"><i class="fas fa-fire mr-[3px]"></i>×{dispatch.hotspot}</span>
+          <span class="pd-badge pd-badge--purple flex-shrink-0" title="Repeated incidents on this street"><i class="fas fa-fire mr-[3px]"></i>×{dispatch.hotspot}</span>
         {/if}
-        <span class="pd-row-msg flex-1">{dispatch.message}</span>
-      </div>
-      <div class="flex items-center gap-[8px]">
-        <span class="pd-kv-label">#{dispatch.id}</span>
-        {#if dispatch.street}<span class="text-[10px] opacity-40 truncate">{dispatch.street}</span>{/if}
-        <span class="pd-time">{timeAgo(dispatch.time)}</span>
       </div>
       {#if showUnitsInline && dispatch.units?.length}
         <div class="flex items-center gap-[4px] flex-wrap">
@@ -179,9 +226,22 @@
         <div class="pd-strip">
           <div class="pd-strip-row">
             <i class="fas fa-car text-[10px] opacity-50"></i>
-            <span class="pd-strip-title">{dispatch.vehicle || 'Unknown vehicle'}</span>
+            <span class="pd-strip-title pd-strip-title--tight">{dispatch.vehicle || 'Unknown vehicle'}</span>
             {#if dispatch.plate}
-              <span class="pd-plate">{dispatch.plate}</span>
+              <Plate plate={dispatch.plate} index={dispatch.plateIndex} />
+              <!-- Only reachable once the call is expanded, so it never
+                   clutters the collapsed board. -->
+              <span
+                class="pd-copy"
+                class:pd-copy--done={copiedPlate}
+                role="button"
+                tabindex="-1"
+                title={copiedPlate ? 'Copied' : 'Copy plate'}
+                on:click|stopPropagation={copyPlate}
+                on:keydown|stopPropagation
+              >
+                <i class="fas {copiedPlate ? 'fa-check' : 'fa-copy'}"></i>
+              </span>
             {/if}
           </div>
           {#if vehicleBadges(dispatch).length}
@@ -195,18 +255,34 @@
       {/if}
 
       {#if dispatch.weapon || dispatch.automaticGunFire}
-        <div class="pd-danger {dispatch.automaticGunFire ? 'pd-danger--red' : ''}">
-          <i class="fas fa-gun"></i>
-          <span>
-            {#if dispatch.weapon}{dispatch.weapon}{:else}Shots fired{/if}
-            {#if dispatch.automaticGunFire}&nbsp;· Automatic fire{/if}
-          </span>
+        <!-- Same strip anatomy as location, vehicle and person. The urgency
+             now rides on the colour rather than on a full-width slab that
+             shouted just as loudly for a handgun as for an RPG. -->
+        <div class="pd-strip pd-weap pd-weap--t{dispatch.weaponTier || 1}">
+          <div class="pd-strip-row">
+            <i class="fas {WEAPON_ICON[dispatch.weaponClass] || 'fa-gun'} text-[10px]"></i>
+            <span class="pd-strip-title pd-strip-title--tight">
+              {WEAPON_LABEL[dispatch.weaponClass] || dispatch.weapon || 'Shots fired'}
+            </span>
+            {#if dispatch.weapon && WEAPON_LABEL[dispatch.weaponClass]}
+              <span class="pd-weap-model">{dispatch.weapon}</span>
+            {/if}
+            {#if dispatch.automaticGunFire}
+              <span class="pd-badge pd-badge--red">Automatic</span>
+            {/if}
+            {#if (dispatch.count || 1) > 1}
+              <span class="pd-badge">×{dispatch.count} reports</span>
+            {/if}
+          </div>
         </div>
       {/if}
 
-      {#if personLine(dispatch).length}
+      {#if personLine(dispatch).length || dispatch.callsign}
         <div class="pd-person">
           <i class="fas fa-user"></i>
+          {#if dispatch.callsign}
+            <span class="pd-badge pd-mono">{dispatch.callsign}</span>
+          {/if}
           {#each personLine(dispatch) as part, i}
             {#if i > 0}<span class="opacity-40">·</span>{/if}
             <span>{part}</span>

@@ -21,10 +21,16 @@ Do not create issues on GitHub if you need help. Issues are for bug reporting an
 
 # Preview
 
-<img src="https://r2.fivemanage.com/image/Rf225gMK1Ub4.png" width="550">
-<img src="https://r2.fivemanage.com/image/DzV76xqfT8cB.png" width="450">
-<img src="https://r2.fivemanage.com/image/vE5gfjX0m3gi.png" width="450">
-<img src="https://r2.fivemanage.com/image/6WaNEWFSxCTm.png" width="450">
+<img src="https://r2.fivemanage.com/image/nESTkFw4aLN6.png" width="450">
+<img src="https://r2.fivemanage.com/image/PUnOJqjeitEB.png" width="450">
+<img src="https://r2.fivemanage.com/image/NmJPUpcNi4p1.png" width="450">
+
+## Dispatch Menu
+<img src="https://r2.fivemanage.com/image/rHccyBS2y48f.png" width="450">
+<img src="https://r2.fivemanage.com/image/rhMK7Kwt91rg.jpg" width="450">
+
+## Plates Tab
+<img src="https://r2.fivemanage.com/image/7tARMHrRj7JN.png" width="450">
 
 # Change Language.
 
@@ -171,6 +177,39 @@ Declaring happens from the call itself — open a call and the button sits under
 Anyone of the right grade can stand one down, not just whoever declared it: otherwise the state sticks when that player logs off. It also ends on its own after `Duration`, and immediately when the call is cleared. Re-declaring an active incident extends it rather than resetting it.
 
 The client hides the button when the grade doesn't qualify, but that's cosmetics — the server re-checks the grade on every declare and stand-down.
+
+## Critical alerts (priority 0)
+ 
+A tier above the existing red, for calls that make every unit drop what it is doing. `Config.CriticalCodes` lists the alert code names that get it:
+ 
+```lua
+Config.CriticalCodes = {
+    'officerdown', 'officerbackup', 'officerdistress', 'emsdown',
+    'bankrobbery', 'pacificbankrobbery', 'paletobankrobbery',
+    'vangelicorobbery', 'humanelabsrobbery', 'unionrobbery', 'prisonbreak',
+}
+```
+ 
+Nothing is renumbered — existing integrations keep sending priority 1/2/3 and keep their meaning. Only these code names are lifted above them, and the upgrade happens once on the server, so alerts coming from other resources via `CustomAlert` are covered by their code name alone.
+ 
+Repeated reports still escalate a routine call to priority 1, but **never into this tier**: critical is granted, not accumulated. Otherwise noise would climb back to the top over time, which is the problem the tier was added to fix.
+ 
+Critical calls sort to the top of the board and carry their own treatment — a heavier border and a slow pulse rather than another shade of red, since two reds are hard to tell apart at a glance. The in-app reduced-motion preference turns the pulse off and keeps the weight.
+ 
+Keep the list short. A board where half the calls are critical is exactly the situation this replaced.
+
+## Search radius and position offset
+ 
+Alerts with `offset = true` in `Config.Blips` report an approximate position: officers get a circle to search rather than a pin to drive to.
+ 
+The displacement is now bounded by that circle's own radius, so **the incident is always inside the area being searched**. Previously the two were independent — an explosion drew a 75 m circle while the position could be thrown up to `Config.MaxOffset` on each axis, roughly 170 m diagonally, so the circle usually did not contain the incident at all.
+ 
+It is also area-uniform rather than radius-uniform: every point in the circle is equally likely, so the centre is no better a guess than the edge. Sampling the distance linearly would have piled the truth up in the middle and officers would have learned to search there first.
+ 
+Two further changes make the circle mean what it says:
+ 
+- **The offset is fixed per call.** Repeat reports move the circle with the incident but reuse the same displacement. Re-randomising on every report let anyone average the jumps and triangulate the true spot — the more reports, the better the estimate, which is backwards.
+- **The true coordinates no longer leave the server.** Offset alerts used to ship `coords` alongside `displayCoords`, so the approximation was decoration: anything reading the packet could see straight through it. Every path out — broadcast, targeted alert, call list, menu — now strips them.
 
 # FAQ
 * There are no calls showing on dispatch or mdt list.

@@ -92,5 +92,15 @@
     "justnow": "zojuist",
     "minute": "minuten geleden",
     "hour": "uren geleden",
-    "day": "dagen geleden"
+    "day": "dagen geleden",
+    "platebackup": "Agent vraagt om assistentie",
+    "signrobbery": "Diefstal van bord",
+    "undergroundrobbery": "Ondergrondse overval",
+    "plate_log_disabled": "Kentekenlogboek is uitgeschakeld",
+    "plate_backup_disabled": "Assistentieverzoeken zijn uitgeschakeld",
+    "plate_backup_cooldown": "Assistentie al aangevraagd",
+    "plate_backup_failed": "Verzoek kon niet worden verzonden",
+    "incident_too_many": "Te veel actieve grootschalige incidenten (%s)",
+    "incident_default_title": "Grootschalig incident",
+    "incident_supervisor": "Supervisor"
 }

@@ -1,5 +1,6 @@
 <script>
   import { SendNUI } from '@utils/SendNUI'
+  import Plate from './Plate.svelte'
   import { timeAgo } from '@utils/timeAgo'
   import { slide } from 'svelte/transition'
   import { DUR, EASE_OUT } from '@utils/motion'
@@ -10,6 +11,24 @@
   // Backup is the one action here that leaves this client, so it gets a
   // two-step confirm — an accidental click would put a priority call on
   // everyone's board.
+  // Copying the plate: navigator.clipboard needs a secure context, which the
+  // NUI is not, so the old textarea trick is the one that actually works here.
+  let copied = false;
+  function copyPlate() {
+    const text = hit.plate;
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;opacity:0;pointer-events:none;';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+      copied = true;
+      setTimeout(() => (copied = false), 1400);
+    } catch { /* nothing sensible to say if the host blocks it */ }
+  }
+
   let confirmBackup = false;
   let backupSent = false;
   let backupError = '';
@@ -40,7 +59,20 @@
 
     <div class="flex flex-col min-w-0 flex-1 gap-[2px]">
       <div class="flex items-center gap-[6px]">
-        <span class="pd-plate">{hit.plate}</span>
+        <Plate plate={hit.plate} index={hit.plateIndex} />
+        <!-- Sits with the plate rather than among the actions below: it acts on
+             the plate, and it is a convenience, not a decision. -->
+        <span
+          class="pd-copy"
+          class:pd-copy--done={copied}
+          role="button"
+          tabindex="-1"
+          title={copied ? 'Copied' : 'Copy plate'}
+          on:click|stopPropagation={copyPlate}
+          on:keydown|stopPropagation
+        >
+          <i class="fas {copied ? 'fa-check' : 'fa-copy'}"></i>
+        </span>
         {#if hit.footerText}
           <!-- The MDT already phrased the verdict; echo it rather than
                re-deciding what "flagged" means here. -->

@@ -92,5 +92,15 @@
   "justnow": "şuan",
   "minute": "dakika önce",
   "hour": "saat önce",
-  "day": "gün önce"
+  "day": "gün önce",
+  "platebackup": "Memur Destek Talep Ediyor",
+  "signrobbery": "Tabela Hırsızlığı",
+  "undergroundrobbery": "Yeraltı Soygunu",
+  "plate_log_disabled": "Plaka kaydı devre dışı",
+  "plate_backup_disabled": "Destek talepleri devre dışı",
+  "plate_backup_cooldown": "Destek zaten talep edildi",
+  "plate_backup_failed": "Talep gönderilemedi",
+  "incident_too_many": "Çok fazla aktif büyük olay (%s)",
+  "incident_default_title": "Büyük olay",
+  "incident_supervisor": "Amir"
 }

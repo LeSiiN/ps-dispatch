@@ -51,13 +51,13 @@
         <!-- Search area instead of an exact point: the alert only knows a
              neighborhood (offset + radius), and the thumb honors that. -->
         <div
-          class="pd-thumb-radius {priority == 1 ? 'pd-thumb-radius--red' : ''}"
+          class="pd-thumb-radius {(priority ?? 3) <= 1 ? 'pd-thumb-radius--red' : ''}"
           style="left:{fx * 100}%; top:{fy * 100}%; width:{circlePct}%; padding-top:{circlePct}%;"
         ></div>
       {/if}
     </div>
     {#if circlePct <= 0}
-      <div class="pd-thumb-marker {priority == 1 ? 'pd-thumb-marker--red' : ''}"></div>
+      <div class="pd-thumb-marker {(priority ?? 3) <= 1 ? 'pd-thumb-marker--red' : ''}"></div>
     {/if}
   </div>
 {/if}

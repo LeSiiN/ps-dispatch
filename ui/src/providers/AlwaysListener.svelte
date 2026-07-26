@@ -47,6 +47,23 @@
 			dispatches.push(data);
 			return dispatches;
 		});
+
+		// Keep the menu in step. Its list is a snapshot taken when it opened,
+		// so a call arriving while it is on screen would otherwise be invisible
+		// there until you closed and reopened it — with the popup for that same
+		// call sitting right next to an empty board.
+		if (!data?.data?.listed) return;
+		DISPATCH_MENU.update(list => {
+			if (!Array.isArray(list)) return list;
+			const idx = list.findIndex(c => c?.id === data.data.id);
+			if (idx !== -1) {
+				// Merged repeat: the server bumped its count, so replace in
+				// place rather than adding the same call twice.
+				list[idx] = data.data;
+				return [...list];
+			}
+			return [...list, data.data];
+		});
 	});
 
 	ReceiveNUI('unitCount', (payload: any) => {

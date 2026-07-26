@@ -508,6 +508,30 @@ exports('OfficerBackup', OfficerBackup)
 
 RegisterNetEvent("ps-dispatch:client:officerbackup", function() OfficerBackup() end)
 
+local function PlateBackup()
+    local coords = GetEntityCoords(cache.ped)
+
+    local dispatchData = {
+        message = locale('platebackup'),
+        codeName = 'platebackup',
+        code = '10-32',
+        icon = 'fa-solid fa-hands-holding-child',
+        priority = 2,
+        coords = coords,
+        gender = GetPlayerGender(),
+        street = GetStreetAndZone(coords),
+        name = PlayerData.charinfo.firstname .. " " .. PlayerData.charinfo.lastname,
+        callsign = PlayerData.metadata["callsign"],
+        alertTime = 10,
+        jobs = { 'ems', 'leo' }
+    }
+
+    TriggerServerEvent('ps-dispatch:server:notify', dispatchData)
+end
+exports('PlateBackup', PlateBackup)
+
+RegisterNetEvent("ps-dispatch:client:platebackup", function() PlateBackup() end)
+
 local function OfficerInDistress()
     local coords = GetEntityCoords(cache.ped)
 

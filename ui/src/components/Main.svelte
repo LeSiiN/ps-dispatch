@@ -89,30 +89,39 @@
 
     {#each visible as dispatch (dispatch.data.id)}
       <div
-        class="pd-panel pd-alert w-[340px] {dispatch.data.priority == 1 ? 'pd-panel--priority pd-alert--urgent' : ''} relative"
-        in:signalIn={{ edge: alertEdge, priority: dispatch.data.priority == 1, duration: $REDUCED_MOTION ? 0 : DUR.alertIn }}
+        class="pd-panel pd-alert w-[340px] {(dispatch.data.priority ?? 3) <= 1 ? 'pd-panel--priority pd-alert--urgent' : ''} {(dispatch.data.priority ?? 3) <= 0 ? ($REDUCED_MOTION ? 'pd-panel--critical pd-no-pulse' : 'pd-panel--critical') : ''} {dispatch.data.responded ? ' pd-panel--responded' : ''} relative"
+        in:signalIn={{ edge: alertEdge, priority: (dispatch.data.priority ?? 3) <= 1, duration: $REDUCED_MOTION ? 0 : DUR.alertIn }}
         out:signalOut={{ edge: alertEdge, duration: $REDUCED_MOTION ? 0 : DUR.alertOut }}
         animate:flip={{ duration: $REDUCED_MOTION ? 0 : DUR.base, easing: EASE_OUT }}
       >
 
         <!-- Header: what + when -->
         <div class="pd-head">
-          <div class="pd-icon {dispatch.data.priority == 1 ? 'pd-icon--priority' : ''}">
+          <div class="pd-icon {(dispatch.data.priority ?? 3) <= 1 ? 'pd-icon--priority' : ''} {(dispatch.data.priority ?? 3) <= 0 ? 'pd-icon--critical' : ''}">
             <i class={dispatch.data.icon}></i>
           </div>
-          <span class="pd-badge {dispatch.data.priority == 1 ? 'pd-badge--red' : 'pd-badge--cyan'}">{dispatch.data.code}</span>
-          {#if (dispatch.data.count || 1) > 1}
-            <span class="pd-badge pd-badge--red">×{dispatch.data.count}</span>
-          {/if}
-          {#if dispatch.data.escalated}
-            <span class="pd-badge pd-badge--red" title="Auto-escalated after repeated reports"><i class="fas fa-arrow-up mr-[3px]"></i>ESC</span>
-          {/if}
-          {#if dispatch.data.hotspot}
-            <span class="pd-badge pd-badge--purple" title="Repeated incidents on this street"><i class="fas fa-fire mr-[3px]"></i>×{dispatch.data.hotspot}</span>
-          {/if}
-          <span class="pd-title truncate">{dispatch.data.message}</span>
-          <span class="pd-time">{timeAgo(dispatch.data.time)}</span>
+          <!-- Headline carries only the two fixed-width badges. The stacking
+               ones (repeat count, escalation, hotspot) move to the badge row
+               below, so what happened is never the part that gets cut. -->
+          <span class="pd-badge {(dispatch.data.priority ?? 3) <= 1 ? 'pd-badge--red' : 'pd-badge--cyan'} flex-shrink-0">{dispatch.data.code}</span>
+          {#if (dispatch.data.priority ?? 3) <= 0}<span class="pd-badge pd-badge--critical flex-shrink-0">Critical</span>{/if}
+          <span class="pd-title truncate flex-1 min-w-0">{dispatch.data.message}</span>
+          <span class="pd-time flex-shrink-0">{timeAgo(dispatch.data.time)}</span>
         </div>
+
+        {#if (dispatch.data.count || 1) > 1 || dispatch.data.escalated || dispatch.data.hotspot}
+          <div class="pd-tagrow">
+            {#if (dispatch.data.count || 1) > 1}
+              <span class="pd-badge pd-badge--red">×{dispatch.data.count} reports</span>
+            {/if}
+            {#if dispatch.data.escalated}
+              <span class="pd-badge pd-badge--red" title="Auto-escalated after repeated reports"><i class="fas fa-arrow-up mr-[3px]"></i>Escalated</span>
+            {/if}
+            {#if dispatch.data.hotspot}
+              <span class="pd-badge pd-badge--purple" title="Repeated incidents on this street"><i class="fas fa-fire mr-[3px]"></i>×{dispatch.data.hotspot} on this street</span>
+            {/if}
+          </div>
+        {/if}
 
         <div class="px-[10px] py-[8px]">
           <!-- Map crop of the scene, centered on the call -->
@@ -190,7 +199,7 @@
           {/if}
 
           <!-- Live responder count: fed by the server's unitCount broadcasts -->
-          {#if (dispatch.data.unitCount || 0) > 0 && !dispatch.data.responded}
+          {#if (dispatch.data.unitCount || 0) > 0}
             <div class="pd-person"><i class="fas fa-user-group"></i><span class="text-[#4ade80]">{dispatch.data.unitCount} responding</span></div>
           {/if}
 
@@ -214,9 +223,7 @@
               <span>Assigned by dispatch</span>
               <span class="pd-assigned-sub"><i class="fas fa-location-arrow"></i> waypoint set</span>
             </div>
-          {:else if dispatch.data.responded}
-            <div class="pd-responding"><i class="fas fa-circle-check"></i> Responding{#if (dispatch.data.unitCount || 0) > 1}&nbsp;· {dispatch.data.unitCount} units{/if}</div>
-          {:else if dispatch.data.id === newestId}
+          {:else if dispatch.data.id === newestId && !dispatch.data.responded}
             <div class="pd-respond"><span class="pd-kbd">{$RESPOND_KEYBIND}</span> Respond — attach &amp; set waypoint</div>
           {/if}
         </div>

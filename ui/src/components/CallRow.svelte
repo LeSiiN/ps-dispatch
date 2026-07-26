@@ -6,7 +6,7 @@
   import { createEventDispatcher } from 'svelte';
   import { slide } from 'svelte/transition';
   import { DUR, EASE_OUT } from '@utils/motion';
-  import { PLAYER, Locale, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, THUMBS_ENABLED } from '@store/stores';
+  import { PLAYER, Locale, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, THUMBS_ENABLED, REDUCED_MOTION } from '@store/stores';
   import { timeAgo } from '@utils/timeAgo';
   import { SendNUI } from '@utils/SendNUI';
   import MapThumb from './MapThumb.svelte';
@@ -42,6 +42,13 @@
   // Units arrive in attach order from the server, so the first slice is always
   // the units that got there first — no sorting needed.
   const UNIT_LIMIT = 5;
+
+  // Priority 0 sits above the existing red. Everything that used to ask
+  // "== 1" now asks "<= 1", so critical inherits every urgent treatment and
+  // adds its own on top — otherwise the most important call on the board
+  // would have rendered as routine.
+  $: isCritical = (dispatch.priority ?? 3) <= 0;
+  $: isUrgent = (dispatch.priority ?? 3) <= 1;
   let confirmClear = false;
   let noteDraft = '';
   let noteOpen = false;
@@ -108,28 +115,33 @@
 </script>
 
 <div data-call-id={dispatch.id}>
-  <button class="pd-row {dispatch.priority == 1 ? 'pd-row--priority' : ''} {isIncident ? 'pd-row--incident' : ''}" class:pd-row--open={expanded} on:click={() => emit('toggle')}>
-    <div class="pd-icon {dispatch.priority == 1 ? 'pd-icon--priority' : ''}">
+  <button class="pd-row {isUrgent ? 'pd-row--priority' : ''} {isCritical ? ($REDUCED_MOTION ? 'pd-row--critical pd-no-pulse' : 'pd-row--critical') : ''} {isIncident ? 'pd-row--incident' : ''}" class:pd-row--open={expanded} on:click={() => emit('toggle')}>
+    <div class="pd-icon {isUrgent ? 'pd-icon--priority' : ''} {isCritical ? 'pd-icon--critical' : ''}">
       <i class={dispatch.icon}></i>
     </div>
     <div class="flex flex-col min-w-0 flex-1 gap-[2px]">
-      <div class="flex items-center gap-[6px]">
+      <!-- Only the two fixed-width badges share the headline. Everything that
+           can stack up — pin, repeat count, hotspot — sits on the meta line
+           below, because the one thing that must never be squeezed out is
+           what actually happened. -->
+      <div class="flex items-center gap-[6px] min-w-0">
+        <span class="pd-badge {isUrgent ? 'pd-badge--red' : 'pd-badge--cyan'} flex-shrink-0">{dispatch.code}</span>
+        {#if isCritical}<span class="pd-badge pd-badge--critical flex-shrink-0">Critical</span>{/if}
+        <span class="pd-row-msg flex-1 min-w-0">{dispatch.message}</span>
+      </div>
+      <div class="flex items-center gap-[8px] min-w-0">
+        <span class="pd-kv-label flex-shrink-0">#{dispatch.id}</span>
+        {#if dispatch.street}<span class="text-[10px] opacity-40 truncate">{dispatch.street}</span>{/if}
+        <span class="pd-time flex-shrink-0">{timeAgo(dispatch.time)}</span>
         {#if $PINNED_CODES.includes(dispatch.codeName)}
-          <span class="pd-badge pd-badge--red" title="Pinned critical call"><i class="fas fa-thumbtack"></i></span>
+          <span class="pd-badge pd-badge--red flex-shrink-0" title="Pinned critical call"><i class="fas fa-thumbtack"></i></span>
         {/if}
-        <span class="pd-badge {dispatch.priority == 1 ? 'pd-badge--red' : 'pd-badge--cyan'}">{dispatch.code}</span>
         {#if (dispatch.count || 1) > 1}
-          <span class="pd-badge pd-badge--red">×{dispatch.count}</span>
+          <span class="pd-badge pd-badge--red flex-shrink-0">×{dispatch.count}</span>
         {/if}
         {#if dispatch.hotspot}
-          <span class="pd-badge pd-badge--purple" title="Repeated incidents on this street"><i class="fas fa-fire mr-[3px]"></i>×{dispatch.hotspot}</span>
+          <span class="pd-badge pd-badge--purple flex-shrink-0" title="Repeated incidents on this street"><i class="fas fa-fire mr-[3px]"></i>×{dispatch.hotspot}</span>
         {/if}
-        <span class="pd-row-msg flex-1">{dispatch.message}</span>
-      </div>
-      <div class="flex items-center gap-[8px]">
-        <span class="pd-kv-label">#{dispatch.id}</span>
-        {#if dispatch.street}<span class="text-[10px] opacity-40 truncate">{dispatch.street}</span>{/if}
-        <span class="pd-time">{timeAgo(dispatch.time)}</span>
       </div>
       {#if showUnitsInline && dispatch.units?.length}
         <div class="flex items-center gap-[4px] flex-wrap">

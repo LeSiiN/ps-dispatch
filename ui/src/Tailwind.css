@@ -362,20 +362,11 @@ html, body {
 .pd-assigned-sub i { margin-right: 3px; }
 
 /* Confirmed state after responding */
-.pd-responding {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    width: 100%;
-    margin-top: 7px;
-    padding: 6px 12px;
-    border-radius: 4px;
-    font-size: 11px;
-    font-weight: 600;
-    background: rgba(34, 197, 94, 0.12);
-    border: 1px solid rgba(34, 197, 94, 0.3);
-    color: #4ade80;
+/* Responded: the card carries it on its own edge instead of a block in the
+   prompt's slot. Nothing there is pressable any more, so nothing there should
+   look like it is — and the responder count below already says the rest. */
+.pd-panel--responded {
+    border-left: 2px solid rgba(34, 197, 94, 0.75);
 }
 
 /* ── Map thumbnail ────────────────────────────────────────────────────────
@@ -845,3 +836,39 @@ html, body {
     transition: color 0.12s;
 }
 .pd-more-units:hover { color: rgba(255, 255, 255, 0.7); }
+/* ── Critical (priority 0) ──────────────────────────────────────────────────
+   Red is already spent on priority 1, so this tier separates itself by weight
+   and motion instead of by hue — two reds side by side are hard to tell apart,
+   a moving edge is not. */
+.pd-row--critical,
+.pd-panel--critical {
+    border-color: rgba(239, 68, 68, 0.75);
+    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.35), 0 0 18px -4px rgba(239, 68, 68, 0.55);
+    animation: pd-critical-pulse 1.6s ease-in-out infinite;
+}
+@keyframes pd-critical-pulse {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3), 0 0 14px -6px rgba(239, 68, 68, 0.45); }
+    50%      { box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.6), 0 0 22px -2px rgba(239, 68, 68, 0.75); }
+}
+.pd-icon--critical { background: rgba(239, 68, 68, 0.28); color: #fff; }
+.pd-badge--critical {
+    background: rgb(239, 68, 68);
+    color: #fff;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+}
+
+/* The in-app "reduced motion" preference, and the OS-level one. */
+.pd-no-pulse { animation: none !important; }
+@media (prefers-reduced-motion: reduce) {
+    .pd-row--critical, .pd-panel--critical { animation: none; }
+}
+
+/* Badges that would otherwise crowd the headline out of the alert card. Given
+   their own row, they can spell themselves out instead of being cryptic. */
+.pd-tagrow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px 10px 0;
+}

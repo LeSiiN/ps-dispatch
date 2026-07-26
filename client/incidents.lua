@@ -51,7 +51,9 @@ end
 function IncidentQuiets(data)
     if cfg().Enabled == false or cfg().QuietRoutine == false then return false end
     if type(data) ~= 'table' then return false end
-    if data.priority == 1 or data.assigned then return false end
+    -- `<= 1` so the new critical tier counts as urgent too; a plain `== 1`
+    -- would have quieted the most important alert there is.
+    if (tonumber(data.priority) or 3) <= 1 or data.assigned then return false end
     -- An alert about an incident the player is working is never chatter.
     if data.id and attachedCallIds[data.id] then return false end
     return onIncident()

@@ -90,7 +90,7 @@ local function logPlateCheck(data)
         street  = str(data.street, 64) or resolveStreet(data.displayCoords or data.coords),
         footerText = footer and str(footer.text, 64) or nil,
         footerIcon = footer and str(footer.icon, 48) or nil,
-        tone    = ((footer and footer.tone == 'alert') or data.priority == 1) and 'alert' or 'normal',
+        tone    = ((footer and footer.tone == 'alert') or (tonumber(data.priority) or 3) <= 1) and 'alert' or 'normal',
         time    = GetGameTimer(),
         -- os.* is server-only in FiveM's Lua; GetCloudTimeAsInt is the
         -- client-side wall clock, same as client/main.lua uses.
@@ -177,6 +177,6 @@ RegisterNUICallback('plateBackup', function(_, cb)
     end
     lastBackupAt = now
 
-    local ok = pcall(function() exports[resourceName]:OfficerBackup() end)
+    local ok = pcall(function() exports[resourceName]:PlateBackup() end)
     cb({ ok = ok, message = ok and nil or 'Could not send the request' })
 end)

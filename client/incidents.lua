@@ -118,30 +118,57 @@ RegisterNUICallback('standDownIncident', function(data, cb)
     cb('ok')
 end)
 
+--- Ask the server whether this player's grade allows declaring, and tell the
+--- UI. Cheap enough to repeat, and it has to be repeatable: the answer changes
+--- with a promotion, and on join it isn't knowable until the player exists
+--- server-side.
+local function refreshMayDeclare()
+    if cfg().Enabled == false then return end
+    local may = lib.callback.await('ps-dispatch:callback:mayDeclareIncident', false)
+    SendNUIMessage({ action = 'mayDeclareIncident', data = may == true })
+end
+
 -- Pull the current list on join: a client connecting mid-incident would
 -- otherwise see nothing until the next change.
 CreateThread(function()
-    Wait(4000)
     if cfg().Enabled == false then return end
+
+    -- Wait for the player to actually exist rather than for a fixed number of
+    -- seconds. A fixed 4s was enough on an empty server and not enough on a
+    -- busy one: anyone still in character selection was asked too early, the
+    -- server had no player to read a grade from, and the "no" was never
+    -- revisited — so they could never declare for the rest of the session.
+    local waited = 0
+    while not (PlayerData and PlayerData.citizenid) and waited < 120000 do
+        Wait(500)
+        waited = waited + 500
+    end
+    Wait(1000)
+
     local list = lib.callback.await('ps-dispatch:callback:getIncidents', false)
     if type(list) == 'table' then
         activeIncidents = list
         pushIncidentsToNui()
     end
 
-    -- Whether this player may declare is a grade question, and grades live on
-    -- the server. The UI only uses the answer to show or hide the button; the
-    -- server re-checks on every declare regardless.
-    local may = lib.callback.await('ps-dispatch:callback:mayDeclareIncident', false)
-    SendNUIMessage({ action = 'mayDeclareIncident', data = may == true })
+    refreshMayDeclare()
+end)
+
+-- Joining, switching character or reloading the resource all land here.
+RegisterNetEvent('QBCore:Client:OnPlayerLoaded', function()
+    CreateThread(function() Wait(1500) refreshMayDeclare() end)
+end)
+
+RegisterNetEvent('qbx_core:client:playerLoaded', function()
+    CreateThread(function() Wait(1500) refreshMayDeclare() end)
 end)
 
 -- Job changes mid-session (promotion, going off duty) change the answer.
+-- A promotion changes the answer.
 RegisterNetEvent('QBCore:Client:OnJobUpdate', function()
-    if cfg().Enabled == false then return end
-    CreateThread(function()
-        Wait(500)
-        local may = lib.callback.await('ps-dispatch:callback:mayDeclareIncident', false)
-        SendNUIMessage({ action = 'mayDeclareIncident', data = may == true })
-    end)
+    CreateThread(function() Wait(500) refreshMayDeclare() end)
+end)
+
+RegisterNetEvent('qbx_core:client:onJobUpdate', function()
+    CreateThread(function() Wait(500) refreshMayDeclare() end)
 end)

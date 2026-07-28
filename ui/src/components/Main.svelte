@@ -1,7 +1,7 @@
 <script>
   import { afterUpdate, onDestroy } from 'svelte';
   import Plate from './Plate.svelte';
-  import { DISPATCH, removeDispatch, RESPOND_KEYBIND, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, THUMBS_ENABLED, COMPACT_ALERTS, ALERT_DURATION, REDUCED_MOTION } from '@store/stores';
+  import { DISPATCH, removeDispatch, RESPOND_KEYBIND, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, THUMBS_ENABLED, COMPACT_ALERTS, ALERT_DURATION, REDUCED_MOTION, UI_SCALE } from '@store/stores';
   import { fly } from 'svelte/transition';
   import { flip } from 'svelte/animate';
   import { DUR, EASE_OUT, edgeFor, signalIn, signalOut } from '@utils/motion';
@@ -97,7 +97,7 @@
   }
 </script>
 
-<div class="w-screen h-screen flex {wrapClasses} pointer-events-none p-[16px]">
+<div class="w-screen h-screen flex {wrapClasses} pointer-events-none p-[16px]" style="transform:scale({$UI_SCALE});transform-origin:{$ALERT_POSITION.includes('left') ? 'left' : 'right'} top;">
   <div class="flex flex-col gap-[7px] {hPos === 'right' ? 'items-end' : hPos === 'left' ? 'items-start' : 'items-center'}">
     {#if hiddenCount > 0 && vPos === 'top'}
       <p class="pd-more" transition:fly={{ y: -6, duration: DUR.fast, easing: EASE_OUT }}>+{hiddenCount} more active {hiddenCount === 1 ? 'alert' : 'alerts'}</p>

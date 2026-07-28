@@ -2,7 +2,7 @@
 	import { ReceiveNUI } from '@utils/ReceiveNUI'
 	import { debugData } from '@utils/debugData'
 	import { SendNUI } from '@utils/SendNUI'
-	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, FOCUS_CALL, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, REDUCED_MOTION, PLATE_HITS, MENU_TAB, PLATES_ENABLED, INCIDENTS, MAY_DECLARE } from '@store/stores';
+	import { VISIBILITY, BROWSER_MODE, DISPATCH_MENU, DISPATCH_MENUS, DISPATCH, PLAYER, Locale, RESPOND_KEYBIND, MAX_CALL_LIST, MAX_VISIBLE_ALERTS, ALERT_POSITION, MAP_IMAGE, UNATTENDED_AFTER, PINNED_CODES, STATS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, FOCUS_CALL, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, REDUCED_MOTION, PLATE_HITS, MENU_TAB, PLATES_ENABLED, INCIDENTS, MAY_DECLARE, UI_SCALE } from '@store/stores';
 
 	debugData([
 		{
@@ -101,6 +101,10 @@
 		});
 	});
 
+	ReceiveNUI('resetSettings', () => {
+		UI_SCALE.set(1)
+	});
+
 	ReceiveNUI('incidents', (data: any) => {
 		INCIDENTS.set(Array.isArray(data) ? data : []);
 	});
@@ -169,10 +173,15 @@
 		if (Array.isArray(data.pinnedCodes)) PINNED_CODES.set(data.pinnedCodes)
 		if (Array.isArray(data.alertTypes)) ALERT_TYPES.set(data.alertTypes)
 		// Per-player settings (dispatch settings modal) override the config
-		// defaults set above. localStorage survives relogs; bad JSON is
-		// ignored and the defaults stand.
+		// defaults set above. They arrive from Lua's KVP store, which unlike
+		// localStorage survives a CEF cache clear. Bad JSON is ignored and the
+		// defaults stand.
 		try {
-			const saved = JSON.parse(localStorage.getItem('psd-settings') || '{}')
+			const saved = JSON.parse(data.savedSettings || localStorage.getItem('psd-settings') || '{}')
+			// Clamped on load, not just on save: anyone who stored a larger value
+			// before the ceiling existed would otherwise stay locked out of the
+			// very dialog that could fix it.
+			if (typeof saved.uiScale === 'number') UI_SCALE.set(Math.min(1.3, Math.max(0.8, saved.uiScale)))
 			if (typeof saved.alertPosition === 'string') ALERT_POSITION.set(saved.alertPosition)
 			if (typeof saved.maxVisibleAlerts === 'number') MAX_VISIBLE_ALERTS.set(saved.maxVisibleAlerts)
 			if (typeof saved.thumbsEnabled === 'boolean') THUMBS_ENABLED.set(saved.thumbsEnabled)

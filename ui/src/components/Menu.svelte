@@ -1,5 +1,5 @@
 <script>
-  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, ALERT_POSITION, MAX_VISIBLE_ALERTS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, MAP_IMAGE, FOCUS_CALL, OVERLAY_OPEN, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, REDUCED_MOTION, processedDispatchMenu, PLATE_HITS, MENU_TAB, PLATES_ENABLED, INCIDENTS, MAY_DECLARE, PLAYER } from '@store/stores';
+  import { DISPATCH_MENU, DISPATCH_MUTED, DISPATCH_DISABLED, STATS, ALERT_POSITION, MAX_VISIBLE_ALERTS, THUMBS_ENABLED, BLIPS_ENABLED, PRIORITY_ONLY, COMPACT_ALERTS, MAP_IMAGE, FOCUS_CALL, OVERLAY_OPEN, ALERT_TYPES, MUTED_CODES, ALERT_DURATION, REDUCED_MOTION, processedDispatchMenu, PLATE_HITS, MENU_TAB, PLATES_ENABLED, INCIDENTS, MAY_DECLARE, PLAYER, UI_SCALE } from '@store/stores';
   import { fly, fade, scale, slide } from 'svelte/transition';
   import { flip } from 'svelte/animate';
   import { DUR, EASE_IN, EASE_OUT } from '@utils/motion';
@@ -8,6 +8,12 @@
   import PlateRow from './PlateRow.svelte'
   import MapThumb from './MapThumb.svelte'
   import { tick } from 'svelte'
+
+  // Fixed steps rather than a slider: the control sits in the dialog you are
+  // adjusting, so anything that needs dragging fights you. The ceiling is
+  // deliberate too — beyond about 1.3 the panel walks off a 1080p screen, and
+  // the way back in is this dialog.
+  const SCALES = [[0.9, 'Small'], [1.0, 'Default'], [1.15, 'Large'], [1.3, 'Huge']];
 
   let activeCallId = null;
   let activePlateId = null;
@@ -112,7 +118,10 @@
 
   function saveSettings() {
     try {
-      localStorage.setItem('psd-settings', JSON.stringify({
+      // Persisted through Lua (SetResourceKvp) so a CEF cache clear doesn't
+      // take the player's settings with it.
+      SendNUI('saveDispatchSettings', JSON.stringify({
+        uiScale: $UI_SCALE,
         alertPosition: $ALERT_POSITION,
         maxVisibleAlerts: $MAX_VISIBLE_ALERTS,
         thumbsEnabled: $THUMBS_ENABLED,
@@ -123,7 +132,7 @@
         alertDuration: $ALERT_DURATION,
         reducedMotion: $REDUCED_MOTION,
       }));
-    } catch (e) { /* storage unavailable — session-only */ }
+    } catch (e) { /* client unreachable — session-only */ }
     // Blips, the priority filter, per-type mutes and volume all gate work in
     // Lua BEFORE the NUI is involved, so they travel to the client as well.
     SendNUI('setDispatchPrefs', {
@@ -171,13 +180,18 @@
 
 <svelte:window on:keydown={onKeydown} />
 
-<div class="w-screen h-screen flex items-center justify-end">
+<!-- One transform on the wrapper scales the whole panel: every inner size is
+     in px, so a font-size change alone would leave the layout behind. -->
+<div
+  class="w-screen h-screen flex items-center justify-end"
+  style="transform:scale({$UI_SCALE});transform-origin:right center;"
+>
 
   <!-- Active Calls board: everything currently being worked, units inline.
        Only appears when there is something active. -->
   {#if activeCalls.length}
     <div
-      class="pd-panel w-[330px] max-w-[26vw] h-[86%] mr-[10px]"
+      class="pd-panel w-[330px] max-w-[26vw] mr-[10px]" style="height:calc(86% / {$UI_SCALE});"
       in:fly={{ x: 26, duration: DUR.slow, easing: EASE_IN }}
       out:fly={{ x: 26, duration: DUR.exit, easing: EASE_OUT }}
     >
@@ -198,7 +212,7 @@
 
   <!-- Main dispatch panel: pending calls + controls -->
   <div
-    class="pd-panel w-[370px] max-w-[30vw] h-[86%] mr-[14px]"
+    class="pd-panel w-[370px] max-w-[30vw] mr-[14px]" style="height:calc(86% / {$UI_SCALE});"
     in:fly={{ x: 40, duration: DUR.slow, easing: EASE_IN }}
     out:fly={{ x: 40, duration: DUR.exit, easing: EASE_OUT }}
   >
@@ -352,6 +366,11 @@
     </div>
   {/if}
 
+</div>
+
+<!-- Outside the scaled wrapper on purpose: the settings dialog is where you
+     change the scale, so it must not move or resize while you do. Inside it,
+     a large scale pushed the panel off screen with no way back in. -->
   {#if settingsOpen}
     <!-- Settings modal — ImpoundForm anatomy: overlay, centered panel,
          13/20 header with hairline, label-over-control form groups. -->
@@ -365,6 +384,20 @@
           </button>
         </div>
         <div class="pd-modal-body pd-scroll">
+
+          <div class="pd-form-group">
+            <span class="pd-form-label">Interface Scale</span>
+            <div class="pd-scale-row">
+              {#each SCALES as [value, label]}
+                <button
+                  class="pd-scale-btn"
+                  class:pd-scale-btn--active={Math.abs($UI_SCALE - value) < 0.001}
+                  on:click={() => { UI_SCALE.set(value); saveSettings(); }}
+                >{label}</button>
+              {/each}
+            </div>
+            <span class="text-[10px] opacity-35">Sized for 1080p — 1440p usually wants Large, 4K Huge</span>
+          </div>
 
           <div class="pd-form-group">
             <span class="pd-form-label">Alert Position</span>
@@ -481,4 +514,3 @@
       </div>
     </div>
   {/if}
-</div>

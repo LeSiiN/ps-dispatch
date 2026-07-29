@@ -1,0 +1,114 @@
+name: Release
+
+# Runs on every push to main, but only publishes when the version in
+# fxmanifest.lua has changed. Releasing on every commit would produce a release
+# per typo fix; this way the version bump is the deliberate signal, and the
+# release is the automatic part.
+on:
+  push:
+    branches:
+      - main
+  # Lets you re-run a release by hand without pushing anything.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Tags are needed to tell whether this version was already released.
+          fetch-depth: 0
+
+      - name: Read version from fxmanifest
+        id: version
+        run: |
+          VERSION=$(grep -oP "^version\s+'\K[^']+" fxmanifest.lua)
+          if [ -z "${VERSION}" ]; then
+            echo "::error::No version line found in fxmanifest.lua"
+            exit 1
+          fi
+          TAG="v${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+          if git rev-parse "${TAG}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${TAG} already exists — nothing to release."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Releasing ${TAG}"
+          fi
+
+      - name: Setup Node.js
+        if: steps.version.outputs.exists == 'false'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install UI dependencies
+        if: steps.version.outputs.exists == 'false'
+        working-directory: ui
+        run: npm ci --no-audit --no-fund
+
+      - name: Build UI
+        if: steps.version.outputs.exists == 'false'
+        working-directory: ui
+        # Writes to html/ and empties it first, so this has to run before the
+        # files are staged — a stale html/ from the repo would ship instead.
+        run: npm run build
+
+      - name: Stage release files
+        if: steps.version.outputs.exists == 'false'
+        run: |
+          STAGE_DIR="release-stage/ps-dispatch"
+          mkdir -p "${STAGE_DIR}"
+
+          # Required
+          cp -r client   "${STAGE_DIR}/"
+          cp -r server   "${STAGE_DIR}/"
+          cp -r shared   "${STAGE_DIR}/"
+          cp -r locales  "${STAGE_DIR}/"
+          cp -r html     "${STAGE_DIR}/"
+          cp fxmanifest.lua "${STAGE_DIR}/"
+
+          # Optional — present in some branches, absent in others. Copied only
+          # if they exist so a missing one doesn't fail the build.
+          for item in sounds LICENSE README.md SECURITY.md; do
+            [ -e "${item}" ] && cp -r "${item}" "${STAGE_DIR}/"
+          done
+
+          # ui/ is source, not runtime: html/ is what the resource serves. The
+          # archive stays small and nobody ships node_modules by accident.
+          echo "Staged contents:"
+          find "${STAGE_DIR}" -maxdepth 2 -print
+
+      - name: Create release archive
+        if: steps.version.outputs.exists == 'false'
+        id: archive
+        run: |
+          ARCHIVE_NAME="ps-dispatch-${{ steps.version.outputs.tag }}.zip"
+          (cd release-stage && zip -qr "../${ARCHIVE_NAME}" ps-dispatch)
+          echo "name=${ARCHIVE_NAME}" >> "$GITHUB_OUTPUT"
+          ls -lh "${ARCHIVE_NAME}"
+
+      - name: Publish GitHub Release
+        if: steps.version.outputs.exists == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: true
+          draft: false
+          # A version like 2.3.0-beta.1 publishes as a prerelease.
+          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
+          make_latest: true
+          files: ${{ steps.archive.outputs.name }}

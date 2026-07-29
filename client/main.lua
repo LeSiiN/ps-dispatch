@@ -1,5 +1,15 @@
 QBCore = exports['qb-core']:GetCoreObject()
 PlayerData = {}
+
+-- Settings are persisted with SetResourceKvp rather than the NUI's own
+-- localStorage. Both survive a relog, but a CEF cache clear wipes localStorage
+-- — and clearing the cache is the first thing players are told to try when
+-- anything misbehaves, so every troubleshooting step used to cost them their
+-- settings. KVP lives outside the browser and survives it.
+--
+-- Declared here rather than beside its callback: setupUI reads it far earlier
+-- in the file, and a local is only visible below its declaration.
+local KVP_KEY = 'psd_settings'
 inHuntingZone, inNoDispatchZone = false, false
 local huntingZones, nodispatchZones, huntingBlips = {} , {}, {}
 
@@ -157,6 +167,9 @@ local function setupDispatch()
             -- Whether the plate scanner log exists at all. When off, the NUI
             -- drops the tab bar entirely rather than showing a lone tab.
             platesEnabled = not (Config.PlateScanner and Config.PlateScanner.Enabled == false),
+            -- Stored settings ride along with the rest of the setup payload,
+            -- so the UI has them before the first alert can arrive.
+            savedSettings = GetResourceKvpString(KVP_KEY) or nil,
             incidentsEnabled = not (Config.MajorIncident and Config.MajorIncident.Enabled == false),
             unattendedAfter = Config.UnattendedAfter or 0,
             pinnedCodes = Config.PinnedCodes or {},
@@ -423,6 +436,22 @@ end)
 -- The modal owns these; Lua mirrors the two that must gate work BEFORE the
 -- NUI ever sees an alert (blip creation and priority filtering). Defaults
 -- match the modal's own defaults, so an untouched install behaves as before.
+
+-- Escape hatch. A scale large enough to push the header off screen also takes
+-- the settings button with it, and the way back is through that button — so
+-- there has to be a way out that doesn't need the UI at all.
+RegisterCommand('dispatchreset', function()
+    DeleteResourceKvp(KVP_KEY)
+    SendNUIMessage({ action = 'resetSettings' })
+    lib.notify({ description = 'Dispatch settings reset — rejoin or restart the resource', type = 'success' })
+end, false)
+
+RegisterNUICallback('saveDispatchSettings', function(data, cb)
+    if type(data) == 'string' and #data < 8000 then
+        SetResourceKvp(KVP_KEY, data)
+    end
+    cb('ok')
+end)
 
 RegisterNUICallback('setDispatchPrefs', function(data, cb)
     if type(data) == 'table' then

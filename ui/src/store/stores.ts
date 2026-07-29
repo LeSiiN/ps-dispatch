@@ -36,6 +36,10 @@ export const MENU_TAB = writable<string>("calls");
 // one panel left there is nothing to switch between.
 export const PLATES_ENABLED = writable<boolean>(true);
 
+// UI scale, 0.8–1.4. A fixed pixel layout that reads well at 1080p is small at
+// 1440p and tiny above it, so the whole thing scales from one number.
+export const UI_SCALE = writable<number>(1);
+
 // Declared major incidents, newest first. Broadcast whole on every change.
 export const INCIDENTS = writable<any[]>([]);
 // Whether this player's grade allows declaring. Cosmetic only — the server

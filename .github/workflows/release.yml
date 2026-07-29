@@ -1,4 +1,4 @@
-name: Release
+name: Release (Auto-Bump)
 
 on:
   push:
@@ -19,32 +19,45 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Read version from fxmanifest
+      - name: Auto-Bump Version
         id: version
         run: |
-          VERSION=$(grep -oP "^version\s+'\K[^']+" fxmanifest.lua)
-
-          if [ -z "$VERSION" ]; then
-            echo "::error::No version found in fxmanifest.lua"
+          # 1. Aktuelle Version lesen
+          CURRENT_VERSION=$(grep -oP "^version\s*=?\s*['\"]\K[^'\"]+" fxmanifest.lua | head -n 1)
+          if [ -z "$CURRENT_VERSION" ]; then
+            echo "::error::Keine Version gefunden"
             exit 1
           fi
 
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          # 2. Version in Teile zerlegen und Patch um 1 erhöhen
+          IFS='.' read -r -a PARTS <<< "$CURRENT_VERSION"
+          NEW_VERSION="${PARTS[0]}.${PARTS[1]}.$((PARTS[2] + 1))"
+
+          # 3. fxmanifest.lua mit der neuen Version überschreiben
+          sed -i -E "s/^(version[[:space:]]*=?[[:space:]]*['\"]).*(['\"])/\1$NEW_VERSION\2/" fxmanifest.lua
+
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Neue Version: $NEW_VERSION"
+
+      - name: Commit updated fxmanifest.lua
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add fxmanifest.lua
+          git commit -m "chore: auto-bump version to ${{ steps.version.outputs.version }} [skip ci]"
+          git push origin main
 
       - name: Stage release files
         run: |
           STAGE_DIR="release-stage/ps-dispatch"
           mkdir -p "$STAGE_DIR"
-
-          cp -r client "$STAGE_DIR/"
-          cp -r server "$STAGE_DIR/"
-          cp -r shared "$STAGE_DIR/"
-          cp -r locales "$STAGE_DIR/"
-          cp -r html "$STAGE_DIR/"
-          cp fxmanifest.lua "$STAGE_DIR/"
-
+          for dir in client server shared locales html; do
+            [ -d "$dir" ] && cp -r "$dir" "$STAGE_DIR/"
+          done
+          [ -f "fxmanifest.lua" ] && cp fxmanifest.lua "$STAGE_DIR/"
           for item in sounds LICENSE README.md SECURITY.md; do
             [ -e "$item" ] && cp -r "$item" "$STAGE_DIR/"
           done
@@ -60,7 +73,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           git tag "${{ steps.version.outputs.tag }}"
           git push origin "${{ steps.version.outputs.tag }}"
 
@@ -68,9 +80,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
-          prerelease: ${{ contains(steps.version.outputs.version, '-') }}
           make_latest: true
           files: ${{ steps.archive.outputs.name }}

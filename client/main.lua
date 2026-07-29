@@ -166,7 +166,7 @@ local function setupDispatch()
             end)(),
             -- Whether the plate scanner log exists at all. When off, the NUI
             -- drops the tab bar entirely rather than showing a lone tab.
-            platesEnabled = not (Config.PlateScanner and Config.PlateScanner.Enabled == false),
+            platesEnabled = PlateTabAllowed and PlateTabAllowed() or false,
             -- Stored settings ride along with the rest of the setup payload,
             -- so the UI has them before the first alert can arrive.
             savedSettings = GetResourceKvpString(KVP_KEY) or nil,

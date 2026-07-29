@@ -58,6 +58,39 @@ function MayDeclareIncident(src)
     return tonumber(level) ~= nil and tonumber(level) >= tonumber(required)
 end
 
+--- How the declaring unit is named on every other board.
+---@param player table|nil the QBCore player object
+---@return string
+local function describeDeclarer(player)
+    local data = player and player.PlayerData
+    if not data then return locale('incident_supervisor') end
+
+    local parts = {}
+
+    local callsign = data.metadata and data.metadata.callsign
+    if type(callsign) == 'string' and callsign ~= '' then
+        parts[#parts + 1] = callsign
+    end
+
+    local grade = data.job and data.job.grade
+    local rank = grade and (grade.name or grade.label)
+    if type(rank) == 'string' and rank ~= '' then
+        parts[#parts + 1] = rank
+    end
+
+    local ci = data.charinfo
+    if ci and type(ci.lastname) == 'string' and ci.lastname ~= '' then
+        local initial = ''
+        if type(ci.firstname) == 'string' and ci.firstname ~= '' then
+            initial = ci.firstname:sub(1, 1):upper() .. '. '
+        end
+        parts[#parts + 1] = initial .. ci.lastname
+    end
+
+    if #parts == 0 then return locale('incident_supervisor') end
+    return table.concat(parts, ' · ')
+end
+
 --- Drop an incident, e.g. because its call was cleared. Global so main.lua can
 --- call it without this file exposing its state.
 ---@param callId any
@@ -96,8 +129,6 @@ RegisterServerEvent('ps-dispatch:server:declareIncident', function(payload)
     end
 
     local player = QBCore and QBCore.Functions.GetPlayer(src)
-    local charinfo = player and player.PlayerData and player.PlayerData.charinfo
-    local meta = player and player.PlayerData and player.PlayerData.metadata
 
     activeIncidents[id] = {
         id = id,
@@ -105,9 +136,11 @@ RegisterServerEvent('ps-dispatch:server:declareIncident', function(payload)
         code = type(payload.code) == 'string' and payload.code:sub(1, 12) or nil,
         street = type(payload.street) == 'string' and payload.street:sub(1, 64) or nil,
         declaredBy = player and player.PlayerData.citizenid or nil,
-        declaredByName = (meta and meta.callsign)
-            or (charinfo and (charinfo.firstname .. ' ' .. charinfo.lastname))
-            or locale('incident_supervisor'),
+        -- "60 · Sergeant · J. Walker" — the way a unit is actually identified
+        -- on the radio: callsign first, then who is behind it. Each part is
+        -- dropped if the server doesn't provide it, so a missing rank leaves a
+        -- shorter line rather than a stray separator.
+        declaredByName = describeDeclarer(player),
         declaredAt = GetGameTimer(),
         expiresAt = expiresAt,
     }

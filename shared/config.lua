@@ -60,6 +60,9 @@ Config.PlateScanner = {
     -- Which alert codeNames feed the log. Leave empty to accept any alert that
     -- carries both a plate and a footer — the convention this UI already uses
     -- for an ANSWER (plate check, record lookup) as opposed to a job.
+    
+    Jobs = { 'leo' }, -- job type
+
     CodeNames = { 'platecheck' },
  
     -- Per-entry "Request backup" button. Sends ps-dispatch's ordinary
@@ -289,8 +292,6 @@ Config.Blips = {
     -- Backup requested from a plate hit (see Config.PlateScanner.Backup).
     ['platebackup'] = {
         radius = 0,
-        sprite = 56,
-        color = 2,
         scale = 1.6,
         length = 3,
         sound = 'Lose_1st',

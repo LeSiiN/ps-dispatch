@@ -31,7 +31,7 @@ end
 ---@param data table the alert payload
 ---@return boolean
 local function isPlateCheck(data)
-    if cfg().Enabled == false then return false end
+    if not PlateTabAllowed() then return false end
     if type(data) ~= 'table' or type(data.plate) ~= 'string' then return false end
 
     local names = cfg().CodeNames
@@ -47,6 +47,24 @@ local function isPlateCheck(data)
     -- rather than a job. A vehicle-theft alert also carries a plate, but no
     -- footer, so this doesn't sweep real calls into the log.
     return type(data.footer) == 'table'
+end
+
+--- Does this player's job get the Plates tab? Enabled alone isn't enough:
+--- the log is police work, and an EMS unit would carry an empty tab plus a tab
+--- bar that switches between one panel and nothing.
+---@return boolean
+function PlateTabAllowed()
+    if cfg().Enabled == false then return false end
+
+    local allowed = cfg().Jobs
+    if type(allowed) ~= 'table' or #allowed == 0 then return true end
+
+    local jobType = PlayerData and PlayerData.job and PlayerData.job.type
+    if not jobType then return false end
+    for i = 1, #allowed do
+        if allowed[i] == jobType then return true end
+    end
+    return false
 end
 
 --- The plate design of a vehicle currently in the world wearing this exact
@@ -156,7 +174,7 @@ end
 --- stale entries can't be the reason the menu opens on an empty call list.
 ---@return number
 function GetPlateHitCount()
-    if cfg().Enabled == false then return 0 end
+    if not PlateTabAllowed() then return 0 end
     return #plateHits
 end
 
@@ -206,4 +224,21 @@ RegisterNUICallback('plateBackup', function(_, cb)
 
     local ok = pcall(function() exports[resourceName]:PlateBackup() end)
     cb({ ok = ok, message = ok and nil or locale('plate_backup_failed') })
+end)
+-- A job change flips the answer, and setupUI only runs once. Without this a
+-- cop who goes on as a medic keeps the tab, and vice versa keeps it hidden.
+local function pushTabVisibility()
+    SendNUIMessage({ action = 'platesEnabled', data = PlateTabAllowed() })
+    if not PlateTabAllowed() then
+        plateHits = {}
+        pushHitsToNui()
+    end
+end
+
+RegisterNetEvent('QBCore:Client:OnJobUpdate', function()
+    CreateThread(function() Wait(500) pushTabVisibility() end)
+end)
+
+RegisterNetEvent('qbx_core:client:onJobUpdate', function()
+    CreateThread(function() Wait(500) pushTabVisibility() end)
 end)

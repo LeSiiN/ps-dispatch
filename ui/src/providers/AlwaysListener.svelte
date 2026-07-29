@@ -101,6 +101,11 @@
 		});
 	});
 
+	ReceiveNUI('platesEnabled', (data: any) => {
+		PLATES_ENABLED.set(data === true)
+		if (data !== true) MENU_TAB.set('calls')
+	});
+
 	ReceiveNUI('resetSettings', () => {
 		UI_SCALE.set(1)
 	});

@@ -44,6 +44,14 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
             echo "Releasing ${TAG}"
           fi
+          LATEST=$(git tag -l 'v*' | sed 's/^v//' | sort -V | tail -n1)
+          if [ -n "${LATEST}" ] && [ "${LATEST}" != "${VERSION}" ]; then
+            HIGHEST=$(printf '%s\n%s\n' "${LATEST}" "${VERSION}" | sort -V | tail -n1)
+            if [ "${HIGHEST}" != "${VERSION}" ]; then
+              echo "::error::fxmanifest version ${VERSION} is wrong: v${LATEST}"
+              exit 1
+            fi
+          fi
 
       - name: Setup Node.js
         if: steps.version.outputs.exists == 'false'

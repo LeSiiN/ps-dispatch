@@ -140,13 +140,18 @@
         {/if}
 
         <div class="px-[10px] py-[8px]">
-          <!-- Map crop of the scene, centered on the call -->
-          {#if $MAP_IMAGE && $THUMBS_ENABLED && !$COMPACT_ALERTS}
+          <!-- Map crop of the scene, centered on the call.
+
+               Suppressed for answers. An alert carrying a footer is an ANSWER
+               (plate check, record lookup) rather than a job — the same test
+               client/plates.lua already uses — and it is targeted at the officer
+               who asked for it, who is standing at the position. -->
+          {#if $MAP_IMAGE && $THUMBS_ENABLED && !$COMPACT_ALERTS && !dispatch.data.footer}
             <MapThumb coords={dispatch.data.displayCoords || dispatch.data.coords} radius={dispatch.data.mapRadius || 0} priority={dispatch.data.priority} src={$MAP_IMAGE} />
           {/if}
 
           <!-- Location strip: the first thing a responder needs -->
-          {#if dispatch.data.street || dispatch.data.distance != null || dispatch.data.heading}
+          {#if !dispatch.data.footer && (dispatch.data.street || dispatch.data.distance != null || dispatch.data.heading)}
             <div class="pd-strip">
               <div class="pd-strip-row">
                 <i class="fas fa-location-dot text-[10px] opacity-50"></i>

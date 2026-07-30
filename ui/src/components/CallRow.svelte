@@ -202,7 +202,14 @@
 
   {#if expanded}
     <div class="pd-detail" transition:slide={{ duration: DUR.base, easing: EASE_OUT }}>
-      {#if $MAP_IMAGE && $THUMBS_ENABLED}
+      <!-- Answers get neither a map nor a location. An alert carrying a footer
+           is an ANSWER — a plate check, a record lookup — which is the same test
+           client/plates.lua uses to decide what belongs in the plate log. It is
+           targeted at the officer who asked, and that officer is standing at the
+           position, so a map centred on where they already are sits above the
+           thing they actually wanted to read. A job is somewhere you have to go
+           and keeps both. -->
+      {#if $MAP_IMAGE && $THUMBS_ENABLED && !dispatch.footer}
         <!-- Click opens the enlarged, zoomable map (handled by the parent so
              there is only ever one overlay). -->
         <div class="pd-thumb-click" title="Enlarge map" on:click={() => emit('expandMap')}>
@@ -210,7 +217,7 @@
           <span class="pd-thumb-zoom"><i class="fas fa-magnifying-glass-plus"></i></span>
         </div>
       {/if}
-      {#if dispatch.street || dispatch.heading}
+      {#if !dispatch.footer && (dispatch.street || dispatch.heading)}
         <div class="pd-strip">
           <div class="pd-strip-row">
             <i class="fas fa-location-dot text-[10px] opacity-50"></i>

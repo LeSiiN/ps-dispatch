@@ -14,6 +14,7 @@ Alerts are more than notifications here. A call carries the vehicle's plate draw
 |----------|-----|
 | `qb-core` or `qbx_core` | player data, jobs, grades |
 | `ox_lib` | callbacks, notifications, locales, keybinds |
+| `lsn-radar` [DOWNLOAD](https://github.com/LeSiiN/lsn-radar) | Police Radar, Perfect Fit for both ps-mdt and ps-dispatch |
 | `PolyZone` | alert zones |
 
 ## Installation

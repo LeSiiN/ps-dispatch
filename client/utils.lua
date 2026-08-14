@@ -255,3 +255,21 @@ function ClassifyWeapon(name)
     -- harmless, but do not escalate on a guess either.
     return 'pistol', 1
 end
+
+--- Resolve a street/zone label on behalf of the server, which has no
+--- GetStreetAndZone of its own (see server/main.lua → resolveStreet).
+---
+--- The zone half is reliable for any coordinate: GetNameOfZone reads a static
+--- list. The STREET half is not — GetStreetNameAtCoord reads region-streamed
+--- path nodes and returns hash 0 for areas this client hasn't loaded. The
+--- server therefore asks whichever player is closest to the alert, and
+--- GetStreetAndZone drops the street part when it comes back empty rather
+--- than producing a leading comma.
+lib.callback.register('ps-dispatch:callback:resolveStreet', function(coords)
+    if type(coords) ~= 'table' or not tonumber(coords.x) then return nil end
+    return GetStreetAndZone({
+        x = tonumber(coords.x),
+        y = tonumber(coords.y),
+        z = tonumber(coords.z) or 0.0,
+    })
+end)

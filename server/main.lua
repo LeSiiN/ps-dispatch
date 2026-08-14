@@ -177,16 +177,23 @@ local attachedBy = {}
 local notifyBuckets = {}
 local function notifyAllowed(src)
     local rl = Config.NotifyRateLimit
-    if not rl or not src or src <= 0 then return true end
+    -- `source` is a number for events that arrived over the network, but the
+    -- EMPTY STRING when the same event is fired locally with TriggerEvent.
+    -- The old `src <= 0` therefore threw "attempt to compare string with
+    -- number" for every server-side trigger, killing the handler before a
+    -- call was ever created. Normalise first: anything that isn't a real
+    -- player id has no bucket to limit and passes straight through.
+    local id = tonumber(src)
+    if not rl or not id or id <= 0 then return true end
     local now = os.clock()
-    local bucket = notifyBuckets[src]
-    if not bucket then bucket = {} notifyBuckets[src] = bucket end
+    local bucket = notifyBuckets[id]
+    if not bucket then bucket = {} notifyBuckets[id] = bucket end
     local cutoff = now - (rl.Window or 10)
     local kept = {}
     for i = 1, #bucket do
         if bucket[i] > cutoff then kept[#kept + 1] = bucket[i] end
     end
-    notifyBuckets[src] = kept
+    notifyBuckets[id] = kept
     if #kept >= (rl.Max or 12) then return false end
     kept[#kept + 1] = now
     return true
@@ -284,12 +291,13 @@ end)
 local criticalCodes = {}
 for _, code in ipairs(Config.CriticalCodes or {}) do criticalCodes[code] = true end
 
-RegisterServerEvent('ps-dispatch:server:notify', function(data)
-    local src = source
-    if not notifyAllowed(src) then return end
-    data = sanitizeNotify(data)
-    if not data then return end
-
+---@param data table A validated alert payload
+---@return number|nil # The id of the call that was created or merged into
+-- The whole alert pipeline in one place: escalation, merge, blip metadata,
+-- hotspot, statistics, list insertion, broadcast. Lives outside the event
+-- handler so server-side callers (see ServerAlert below) get the IDENTICAL
+-- treatment as a client report instead of a parallel half-implementation.
+local function createCall(data)
     -- Lift configured alerts above the existing red. Done here, once, rather
     -- than in each alert function: the big robberies come from other resources
     -- via CustomAlert, so the code name is the only handle we have on them.
@@ -304,7 +312,7 @@ RegisterServerEvent('ps-dispatch:server:notify', function(data)
         mergedCall.merged = true
         stats.mergedReports = stats.mergedReports + 1
         broadcastCall(mergedCall)
-        return
+        return mergedCall.id
     end
 
     resolveBlipMeta(data)
@@ -333,6 +341,16 @@ RegisterServerEvent('ps-dispatch:server:notify', function(data)
     data.listed = true
 
     broadcastCall(data)
+    return data.id
+end
+
+-- The client-facing entry point is now only the guard rails: rate limit and
+-- shape validation. Everything a client sends is untrusted, so both stay.
+RegisterServerEvent('ps-dispatch:server:notify', function(data)
+    if not notifyAllowed(source) then return end
+    data = sanitizeNotify(data)
+    if not data then return end
+    createCall(data)
 end)
 
 RegisterServerEvent('ps-dispatch:server:attach', function(id, player)
@@ -562,6 +580,220 @@ RegisterNetEvent('ps-dispatch:server:targetAlert', function(targets, data)
     if source and tonumber(source) and tonumber(source) > 0 then return end
     sendTargetedAlert(targets, data)
 end)
+
+-- ── Server-side alerts ───────────────────────────────────────────────────────
+-- One entry point for any server script that wants to raise a dispatch:
+--
+--   exports['ps-dispatch']:ServerAlert({
+--       message = 'Silent alarm', code = '10-90', codeName = 'storerobbery',
+--       coords = vector3(x, y, z), jobs = { 'leo' },
+--   })
+--
+-- Add `targets = { src }` to send it to specific players instead of every
+-- matching officer. See README → "Server-side alerts".
+
+--- `GetStreetAndZone` is a client native and has no server equivalent, so a
+--- server-created alert has no street unless the caller happens to know one —
+--- and a call without a street loses both its location line in the UI and its
+--- hotspot tracking, which keys on street names.
+---
+--- So we borrow a client and ask. WHICH client matters: the two halves of that
+--- label behave differently.
+---   · GetNameOfZone reads the static zone list — correct from anywhere.
+---   · GetStreetNameAtCoord reads PATH NODES, and those are region-streamed.
+---     Ask a player in Paleto about a coordinate in Vespucci and the street
+---     hash comes back 0.
+--- Picking the nearest player means the answer comes from someone who almost
+--- certainly has that region's nodes loaded. Worst case (nobody near) the
+--- street half is empty and the alert carries the zone alone, which the client
+--- side already handles by joining only the parts that exist.
+---@param coords table
+---@param cb fun(street: string|nil)
+local function resolveStreet(coords, cb)
+    if Config.ResolveStreet == false then return cb(nil) end
+
+    local players = GetPlayers()
+    if #players == 0 then return cb(nil) end -- nobody online to ask, and nobody to alert
+
+    local target, bestSq
+    for i = 1, #players do
+        local src = tonumber(players[i])
+        local ped = src and GetPlayerPed(src)
+        if ped and ped ~= 0 then
+            local p = GetEntityCoords(ped)
+            -- A ped that hasn't finished spawning sits at the origin; its
+            -- distance is meaningless and it has no nodes loaded either.
+            if p and (p.x ~= 0.0 or p.y ~= 0.0) then
+                local dx, dy = p.x - coords.x, p.y - coords.y
+                local distSq = dx * dx + dy * dy
+                if not bestSq or distSq < bestSq then bestSq, target = distSq, src end
+            end
+        end
+    end
+    if not target then return cb(nil) end
+
+    -- A client that disconnects mid-flight never answers, and ox_lib would
+    -- leave the callback pending. The alert must not hang on that, so the
+    -- timeout wins and the call goes out without a street.
+    local done = false
+    SetTimeout(1500, function()
+        if done then return end
+        done = true
+        cb(nil)
+    end)
+
+    lib.callback('ps-dispatch:callback:resolveStreet', target, function(street)
+        if done then return end
+        done = true
+        cb(type(street) == 'string' and street ~= '' and street or nil)
+    end, coords)
+end
+
+--- Validation + defaults for payloads that did NOT come from a client. The
+--- fields a client alert gets for free (coords from the ped, street from the
+--- natives, jobs from the alert function) all have to be filled in here.
+---@param data table
+---@return table|nil
+local function prepareServerAlert(data)
+    if type(data) ~= 'table' then return nil end
+    if type(data.message) ~= 'string' or data.message == '' then return nil end
+
+    -- vector3 and plain tables both accepted; normalised to a table so the
+    -- merge/offset maths and the msgpack payload see the same shape. A
+    -- missing z is the common case server-side and must not become nil in
+    -- displayCoords, or the blip lands nowhere.
+    local c = data.coords
+    if type(c) == 'vector3' or type(c) == 'vector4' then
+        data.coords = { x = c.x + 0.0, y = c.y + 0.0, z = c.z + 0.0 }
+    elseif type(c) == 'table' and tonumber(c.x) and tonumber(c.y) then
+        data.coords = { x = tonumber(c.x), y = tonumber(c.y), z = tonumber(c.z) or 0.0 }
+    else
+        return nil
+    end
+
+    data.message = data.message:sub(1, 128)
+    if type(data.information) == 'string' then data.information = data.information:sub(1, 256) end
+    if type(data.street) ~= 'string' or data.street == '' then data.street = nil end
+
+    data.jobs = (type(data.jobs) == 'table' and #data.jobs > 0) and data.jobs or { 'leo' }
+    data.priority = tonumber(data.priority) or 2
+    data.code = data.code or '10-80'
+    data.codeName = data.codeName or 'custom'
+    data.icon = data.icon or 'fas fa-question'
+
+    -- Same reasoning as sendTargetedAlert: a codeName with no Config.Blips
+    -- entry leaves the client without blip metadata. It degrades quietly
+    -- rather than erroring, but the result is an alert with no map marker and
+    -- no sound — so hand it a default instead.
+    if not (Config.Blips and Config.Blips[data.codeName]) and type(data.alert) ~= 'table' then
+        data.alert = {
+            sprite = 488, color = 3, scale = 1.0, length = 2, radius = 0,
+            sound = 'Lose_1st', sound2 = 'GTAO_FM_Events_Soundset',
+            offset = false, flash = false,
+        }
+    end
+
+    return data
+end
+
+---@param data table
+---@param cb? fun(id: number|nil, sent: table) Called once the alert is out
+---@return boolean # false when the payload was rejected (bad message/coords)
+-- Broadcasts to every on-duty player matching `data.jobs`, or — when
+-- `data.targets` is set — only to those players. Returns as soon as the
+-- payload is accepted; the call itself may be created a moment later while the
+-- street is resolved, so anything that needs the call id (or the final payload,
+-- street included) has to come through `cb` rather than the return value.
+local function serverAlert(data, cb)
+    data = prepareServerAlert(data)
+    if not data then return false end
+
+    local targets = data.targets
+    data.targets = nil
+
+    local function dispatch()
+        local id
+        if targets then
+            id = sendTargetedAlert(targets, data) and data.id or nil
+        else
+            id = createCall(data)
+        end
+        if cb then cb(id, data) end
+    end
+
+    if data.street then
+        dispatch()
+    else
+        resolveStreet(data.coords, function(street)
+            data.street = street
+            dispatch()
+        end)
+    end
+
+    return true
+end
+
+exports('ServerAlert', serverAlert)
+
+-- Debug helper: raise a real server-side alert without wiring up another
+-- resource first. Registered only while Config.Debug is on, so it disappears
+-- in production along with the rest of the debug tooling.
+--
+--   /dispatchtest        broadcast to every on-duty leo, at your position
+--   /dispatchtest me     targeted at you only, at your position
+--   /dispatchtest far    broadcast at Paleto Bay — with nobody up there the
+--                        street resolver falls back to the zone alone, which
+--                        is exactly the case worth seeing once
+--
+-- `servertest` has no Config.Blips entry on purpose: this also exercises the
+-- default-blip fallback for unknown code names.
+if Config.Debug then
+    lib.addCommand('dispatchexport', {
+        help = 'Fire a test alert through exports:ServerAlert',
+        params = {
+            { name = 'mode', type = 'string', help = "'me' or 'far', empty to broadcast here", optional = true },
+        },
+    }, function(source, args, raw)
+        -- `args.mode` goes through ox_lib's parser; `raw` does not. Reading
+        -- both means a parser problem shows up as a mismatch in the log line
+        -- below instead of silently falling back to the default mode.
+        local rawMode = raw and raw:match('^%s*%S+%s+(%S+)') or nil
+        local mode = args.mode or rawMode
+
+        local ped = GetPlayerPed(source)
+        local coords = (ped and ped ~= 0) and GetEntityCoords(ped) or vector3(0.0, 0.0, 0.0)
+        if mode == 'far' then coords = vector3(-100.0, 6400.0, 31.0) end
+
+        -- Printed BEFORE anything async happens, so it appears even if the
+        -- street round trip or the alert itself goes wrong.
+        print(('[ps-dispatch] /dispatchexport raw=%q | args.mode=%s | using=%s | coords=%.1f, %.1f, %.1f')
+            :format(raw or '', tostring(args.mode), tostring(mode), coords.x, coords.y, coords.z))
+
+        local accepted = serverAlert({
+            message = 'Server test alert (' .. (mode or 'broadcast') .. ')',
+            codeName = 'servertest',
+            code = '10-99',
+            icon = 'fas fa-vial',
+            priority = 2,
+            coords = coords,
+            information = 'Raised from the server via exports:ServerAlert',
+            jobs = { 'leo' },
+            targets = mode == 'me' and source or nil,
+            addToList = mode == 'me' or nil,
+        }, function(id, sent)
+            -- Printed AFTER the street round trip, so this is the payload that
+            -- actually went to the clients — the one to compare against what
+            -- you see on screen.
+            print(('[ps-dispatch] test alert #%s sent | coords=%.1f, %.1f, %.1f | street=%s | targets=%s')
+                :format(tostring(id), sent.coords.x, sent.coords.y, sent.coords.z,
+                        sent.street or '<none resolved>', mode == 'me' and source or 'broadcast'))
+        end)
+
+        if not accepted then
+            print('[ps-dispatch] test alert REJECTED — bad message or coords')
+        end
+    end)
+end
 
 -- ── Call lifecycle: clearing and dispatcher notes ────────────────────────────
 

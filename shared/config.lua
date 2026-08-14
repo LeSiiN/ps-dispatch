@@ -133,6 +133,16 @@ Config.FilterOnDuty = true
 -- can flood every officer's screen with fake alerts.
 Config.NotifyRateLimit = { Max = 12, Window = 10 }
 
+-- Server-side alerts (exports:ServerAlert) have no street: GetStreetAndZone is
+-- a client native. With this on, the server asks the player CLOSEST to the
+-- alert to resolve the coordinates, so server alerts get a proper location
+-- line and count towards hotspot tracking. Nearest rather than any: the zone
+-- resolves from anywhere, but the street name comes from region-streamed path
+-- nodes and a far-away player would only return the zone. Costs one round trip
+-- (capped at 1.5s) per alert that doesn't already carry a `street`. Set false
+-- to skip it and leave the field empty instead.
+Config.ResolveStreet = true
+
 -- Map thumbnail on alert cards / expanded menu calls. Points at the ps-mdt
 -- map image served over NUI — CEF can read other resources' files directly,
 -- so no copy of the map ships with dispatch. Adjust the resource name if

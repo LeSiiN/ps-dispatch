@@ -8,6 +8,17 @@ The radio board for your emergency services. Crimes fire alerts, officers respon
 
 Alerts are more than notifications here. A call carries the vehicle's plate drawn on its real plate design, the weapon graded by how dangerous it is, the caller's identity, a map crop of the scene, and a search radius when the position is only approximate. Supervisors can declare a major incident to pin it for everyone, and each officer keeps a private log of the plate checks they have run.
 
+## Preview
+ 
+<img src="https://r2.fivemanage.com/image/nESTkFw4aLN6.png" width="450">
+<img src="https://r2.fivemanage.com/image/PUnOJqjeitEB.png" width="450">
+<img src="https://r2.fivemanage.com/image/NmJPUpcNi4p1.png" width="450">
+### Dispatch Menu
+<img src="https://r2.fivemanage.com/image/rHccyBS2y48f.png" width="450">
+<img src="https://r2.fivemanage.com/image/rhMK7Kwt91rg.jpg" width="450">
+### Plates Tab
+<img src="https://r2.fivemanage.com/image/7tARMHrRj7JN.png" width="450">
+
 ## Dependencies
 
 | Resource | Why |
@@ -440,16 +451,7 @@ The UI itself is English. If you add a key, add it to all eight files: a missing
 - `html/` is generated. Never edit it — edit `ui/src/` and rebuild.
 - `ui/public/` survives a build; `html/` does not.
 - `Config.Debug = true` also alerts when LEO break the law: useful for testing, noisy in production.
-## Preview
- 
-<img src="https://r2.fivemanage.com/image/nESTkFw4aLN6.png" width="450">
-<img src="https://r2.fivemanage.com/image/PUnOJqjeitEB.png" width="450">
-<img src="https://r2.fivemanage.com/image/NmJPUpcNi4p1.png" width="450">
-### Dispatch Menu
-<img src="https://r2.fivemanage.com/image/rHccyBS2y48f.png" width="450">
-<img src="https://r2.fivemanage.com/image/rhMK7Kwt91rg.jpg" width="450">
-### Plates Tab
-<img src="https://r2.fivemanage.com/image/7tARMHrRj7JN.png" width="450">
+
 ## Preset Alert Exports.
  
 All **client-side** — they read the calling player's ped for coords, street and

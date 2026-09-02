@@ -281,6 +281,20 @@ Machine guns are graded with the heavy tier: sustained automatic fire is a diffe
  
 `callsign` is the identifier used on the radio, so it renders as a badge pinned to the name rather than as another dot-separated fact. It travels with `name` through call merges: refreshing one without the other would pair one officer's callsign with another's name.
  
+### Camera field
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `camId` | string | security camera covering the scene |
+
+Heist and robbery exports take a `camId`, and any alert can carry one. When present, the call shows a camera row — in the alert card, in the dispatch menu, and on the MDT's dispatch tab, where a **View** button opens the feed.
+
+> **Use ps-mdt camera ids, not qb-policejob ones.** They look alike and are not interchangeable. The feed is opened by ps-mdt, which resolves the id against its own `mdt_cameras` table — an id from qb-policejob's camera list means nothing there and the button will simply report that the camera is unavailable.
+>
+> The ids you want are the ones in the MDT's Cameras tab, or in `mdt_cameras.cam_id`.
+
+Opening a camera goes through ps-mdt in both places, so the id and the officer's authorisation are checked once, in the resource that owns the cameras. If ps-mdt isn't running, the button says so instead of failing silently.
+
 ### Presentation fields
  
 | Field | Type | Purpose |

@@ -81,7 +81,7 @@ end
 local MERGE_REFRESH_FIELDS = {
     'weapon', 'weaponClass', 'weaponTier', 'automaticGunFire', 'automaticGunfire', 'information',
     'vehicle', 'plate', 'plateIndex', 'color', 'class', 'doors', 'heading',
-    'street', 'gender', 'name', 'number', 'model',
+    'street', 'gender', 'name', 'number', 'model', 'camId',
     -- callsign travels with name: they identify the same person, and refreshing
     -- one without the other would pair officer A's callsign with officer B's
     -- name on a merged report.

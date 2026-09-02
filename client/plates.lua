@@ -242,3 +242,43 @@ end)
 RegisterNetEvent('qbx_core:client:onJobUpdate', function()
     CreateThread(function() Wait(500) pushTabVisibility() end)
 end)
+
+-- ── Camera view ─────────────────────────────────────────────────────────────
+-- Alerts from heists carry a camId. Opening it is ps-mdt's job — this only
+-- forwards the request, so dispatch has no camera logic of its own to keep in
+-- step with the MDT's.
+RegisterNUICallback('viewCamera', function(data, cb)
+    local camId = data and data.camId
+    if type(camId) ~= 'string' or camId == '' then
+        cb({ ok = false, message = 'No camera on this call' })
+        return
+    end
+
+    -- Cameras live in the MDT. Without it there is nothing to open, and the
+    -- callback below would hang waiting for a resource that isn't there.
+    if GetResourceState('ps-mdt') ~= 'started' then
+        cb({ ok = false, message = 'MDT is not running' })
+        return
+    end
+
+    -- ps-mdt re-checks the officer's authorisation and whether the camera
+    -- exists, and answers { success, error } — so the id is never trusted here.
+    local ok, res = pcall(function()
+        return lib.callback.await('ps-mdt:server:viewCamera', false, camId)
+    end)
+
+    if not ok or type(res) ~= 'table' then
+        cb({ ok = false, message = 'Camera unavailable' })
+        return
+    end
+    if res.success ~= true then
+        cb({ ok = false, message = res.error or 'Camera unavailable' })
+        return
+    end
+
+    -- The feed replaces the screen, so the menu has no business staying open.
+    -- Uses the same path the UI's own close button takes, rather than a
+    -- SendNUIMessage the UI never listens for.
+    if ToggleDispatchUI then ToggleDispatchUI(false) end
+    cb({ ok = true })
+end)

@@ -166,6 +166,18 @@
             </div>
           {/if}
 
+          <!-- Camera on scene. Read-only here: the popup is a glance, and
+               opening a feed from it would replace the screen mid-alert. -->
+          {#if dispatch.data.camId}
+            <div class="pd-strip">
+              <div class="pd-strip-row">
+                <i class="fas fa-video text-[10px] opacity-50"></i>
+                <span class="pd-strip-title pd-strip-title--tight">Camera</span>
+                <span class="pd-plate">{dispatch.data.camId}</span>
+              </div>
+            </div>
+          {/if}
+
           <!-- Vehicle strip: ImpoundForm's vehicle-strip, verbatim language -->
           {#if !$COMPACT_ALERTS && ( dispatch.data.vehicle || dispatch.data.plate)}
             <div class="pd-strip">

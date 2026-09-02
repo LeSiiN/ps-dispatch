@@ -43,7 +43,9 @@ local waypointCooldown = false
 
 -- Functions
 ---@param bool boolean Toggles visibilty of the menu
-local function toggleUI(bool)
+-- Global so client/plates.lua can close the menu when a camera feed takes
+-- over the screen. A local would only be visible inside this file.
+function ToggleDispatchUI(bool)
     SetNuiFocus(bool, bool)
     SendNUIMessage({ action = "setVisible", data = bool })
 end
@@ -243,7 +245,7 @@ local function openMenu()
     -- the menu list is a snapshot, so they'd be missed otherwise.
     SendNUIMessage({ action = 'clearAlerts' })
     activeAlertId = nil
-    toggleUI(true)
+    ToggleDispatchUI(true)
 end
 
 local function setWaypoint()
@@ -588,7 +590,7 @@ RegisterNetEvent('ps-dispatch:client:openMenu', function(data)
     if #data == 0 and plateCount == 0 then
         lib.notify({ description = locale('no_calls'), position = 'top', type = 'error' })
     else
-        toggleUI(true)
+        ToggleDispatchUI(true)
         -- Plate log first: the NUI decides which tab to open on, and it can
         -- only do that once it knows whether there are hits. The Lua list is
         -- the source of truth — the NUI store is empty after any UI reload.
@@ -629,7 +631,7 @@ end)
 
 -- NUICallbacks
 RegisterNUICallback("hideUI", function(_, cb)
-    toggleUI(false)
+    ToggleDispatchUI(false)
     cb("ok")
 end)
 

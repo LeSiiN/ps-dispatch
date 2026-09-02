@@ -51,6 +51,16 @@
     taser: 'Taser',
   };
 
+  // Opening the camera is handled by ps-mdt; dispatch only forwards the id.
+  let camError = "";
+  async function viewCamera() {
+    const res = await SendNUI('viewCamera', { camId: dispatch.camId });
+    if (res && res.ok === false) {
+      camError = res.message || 'Camera unavailable';
+      setTimeout(() => (camError = ''), 2600);
+    }
+  }
+
   let confirmDeclare = false;
   $: if (!expanded) confirmDeclare = false;
 
@@ -226,6 +236,22 @@
               <span class="pd-badge pd-badge--blue"><i class="fas fa-compass mr-[3px]"></i>{dispatch.heading}</span>
             {/if}
           </div>
+        </div>
+      {/if}
+
+      {#if dispatch.camId}
+        <div class="pd-strip">
+          <div class="pd-strip-row">
+            <i class="fas fa-video text-[10px] opacity-50"></i>
+            <span class="pd-strip-title pd-strip-title--tight">Camera</span>
+            <span class="pd-plate">{dispatch.camId}</span>
+            <button class="pd-cam-btn" on:click|stopPropagation={viewCamera}>
+              <i class="fas fa-play"></i> View
+            </button>
+          </div>
+          {#if camError}
+            <div class="pd-strip-badges"><span class="pd-badge pd-badge--red">{camError}</span></div>
+          {/if}
         </div>
       {/if}
 

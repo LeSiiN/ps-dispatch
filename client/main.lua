@@ -249,12 +249,17 @@ local function openMenu()
 end
 
 local function setWaypoint()
-    if not isJobValid(PlayerData.job.type) then return end
     if not IsOnDuty() then return end
 
     local data = lib.callback.await('ps-dispatch:callback:getLatestDispatch', false)
 
     if not data then return end
+
+    -- Who may respond is decided by the ALERT, not by Config.Jobs. A job listed
+    -- on a call can obviously act on it — a tow company sent a tow request could
+    -- see the alert but not press respond, because this checked the global
+    -- whitelist first and stopped there.
+    if not (isJobValid(PlayerData.job.type) or isJobValid(data.jobs)) then return end
 
     if data.alertTime == nil then data.alertTime = Config.AlertTime end
 
@@ -269,7 +274,9 @@ local function setWaypoint()
     local at = alertPosition(data)
     if not at then return end -- an alert without a position cannot be routed to
 
-    if not waypointCooldown and lib.table.contains(data.jobs, PlayerData.job.type) then
+    -- Name as well as type, the same pair isJobValid accepts. Checking only the
+    -- type meant an alert addressed to a job by name showed up and did nothing.
+    if not waypointCooldown and isJobValid(data.jobs) then
         SetNewWaypoint(at.x, at.y)
         TriggerServerEvent('ps-dispatch:server:attach', data.id, PlayerData)
         -- Local bridge event so companion resources (e.g. ps-mdt's automatic

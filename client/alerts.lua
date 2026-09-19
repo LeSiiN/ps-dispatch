@@ -22,6 +22,7 @@ local function CustomAlert(data)
         plateIndex = data.plateIndex, -- Plate design (0-5), drawn behind the number
         alertTime = data.alertTime or nil, -- How long it stays on the screen in seconds
         information = data.information or nil, -- Free-text note shown on the alert
+        footer = data.footer or nil, -- Replaces the respond prompt: for alerts that are an answer, or that are taken up somewhere else
         weapon = data.weapon or nil, -- Weapon name (danger banner)
         weaponClass = data.weaponClass, -- pistol/smg/rifle/shotgun/sniper/heavy
         weaponTier = data.weaponTier,   -- 1 sidearm · 2 long gun · 3 heavy
